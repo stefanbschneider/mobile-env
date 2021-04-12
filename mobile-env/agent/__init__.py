@@ -1,3 +1,0 @@
-"""
-Baseline agents for comparison.
-"""
