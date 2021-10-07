@@ -16,6 +16,9 @@ class BaseStation:
         # TODO: compute connection range
         # TODO: compute 1MB range
 
+    def __str__(self):
+        return str(self.bs_id)
+
     @property
     def point(self):
         return Point(int(self.x), int(self.y))
@@ -43,3 +46,6 @@ class UserEquipment:
 
     def reset(self):
         self.x, self.y = self.init_pos
+
+    def __str__(self):
+        return str(self.ue_id)

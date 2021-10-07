@@ -21,6 +21,8 @@ from mobile_env.core.channels import OkumuraHata
 from mobile_env.core.schedules import ResourceFair
 from mobile_env.core.utilities import BoundedLogUtility
 from mobile_env.core.entities import BaseStation, UserEquipment
+from mobile_env.core.movement import RandomWaypointMovement
+from mobile_env.core.rewards import MultiUserReward
 
 
 class MComEnv(gym.Env):
@@ -54,6 +56,8 @@ class MComEnv(gym.Env):
         self.connections: Dict[BaseStation, Set[UserEquipment]] = None
         # stores datarate of downlink connections between UEs and BSs
         self.datarates: Dict[Tuple[BaseStation, UserEquipment], float] = None
+        # stores each UE's (scaled) utility
+        self.utilities: Dict[UserEquipment, float] = None
 
         # parameters for pygame visualization
         self.window_width, self.window_height = 600, 400
@@ -97,8 +101,10 @@ class MComEnv(gym.Env):
 
         # reset established downlink connections (default empty set)
         self.connections = defaultdict(set)
-        # reset connections' data rates (default set to 0.0)
+        # reset connections' data rates (defaults set to 0.0)
         self.datarates = defaultdict(float)
+        # reset UEs' utilities
+        self.utilities = {}
 
         # reset positions of UEs to their initial position
         for ue in self.users:
@@ -153,17 +159,22 @@ class MComEnv(gym.Env):
         for action, ue in zip(actions, self.active):
             self.update_connection(action, ue)
 
-        # update connection metrics
-        num_connections = sum([len(conn)
-                               for conn in self.connections.values()])
+        # track total number of (BS, UE) connections
+        num_connections = sum([len(con) for con in self.connections.values()])
         self.metrics['num_connections'].append(num_connections)
-        ues_connected = len(set.union(*self.connections.values()))
+        # track number of UEs at least connected once
+        ues_connected = len(set.union(set(), *self.connections.values()))
         self.metrics['ues_connected'].append(ues_connected)
 
         # update the datarate of each (BS, UE) connection
+        self.datarates = {}
         for bs in self.basestations:
-            rates = self.station_allocation(bs)
-            self.datarates.update(rates)
+            drates = self.station_allocation(bs)
+            self.datarates.update(drates)
+
+        # track the average data rate of UEs
+        mean_datarate = np.mean(list(self.datarates.values()))
+        self.metrics['mean_datarate'].append(mean_datarate)
 
         # compute macro datarates for each UE & log its mean value
         macro_datarates = self.macro_datarates(self.datarates)
@@ -171,14 +182,20 @@ class MComEnv(gym.Env):
         self.metrics['mean_macro_datarates'].append(mean_macro_datarate)
 
         # compute utilities from UEs' data rates & log its mean value
-        utilities = {ue: self.utility.utility(
+        self.utilities = {ue: self.utility.utility(
             macro_datarates[ue]) for ue in self.active}
-        mean_utility = np.mean(list(utilities.values()))
+        # track the average utility of UEs
+        mean_utility = np.mean(list(self.utilities.values()))
         self.metrics['mean_utility'].append(mean_utility)
+
+        #  scale utilities to range [-1, 1] before computing rewards
+        self.utilities = {ue: self.utility.scale(
+            utility) for ue, utility in self.utilities.items()}
 
         # compute rewards from utility for each UE
         connectable = self.available_connections()
-        rewards = self.reward.rewards(utilities, self.connections, connectable)
+        rewards = self.reward.rewards(
+            self.utilities, self.connections, connectable)
 
         # move user equipments around; update positions of UEs
         for ue in self.active:
@@ -191,10 +208,11 @@ class MComEnv(gym.Env):
 
         # (4) add new UEs; remove UEs that leave map (?)
 
-        # update the datarate of each (BS, UE) connection after movement
+        # update the data rate of each (BS, UE) connection after movement
+        # values must be updated before computing observations
         for bs in self.basestations:
-            rates = self.station_allocation(bs)
-            self.datarates.update(rates)
+            drates = self.station_allocation(bs)
+            self.datarates.update(drates)
 
         # compute observations for next step
         observation = None
@@ -205,14 +223,9 @@ class MComEnv(gym.Env):
 
         # update metrics
         self.time += 1
-        self.metrics['avg_qoe'].append(2.0)
-        self.metrics['avg_drate'].append(5.0)
-        self.metrics['num_connected'].append(3.0)
 
         if self.time >= self.EP_MAX_TIME:
             self.done = True
-
-        rewards = None
 
         info = {}
         return self.observations, rewards, self.done, info
@@ -282,21 +295,16 @@ class MComEnv(gym.Env):
                 self.close()
 
     def render_simulation(self, ax) -> None:
-        radius = 2
-
+        # define colormap for unscaled utilities
         colormap = cm.get_cmap('RdYlGn')
-        norm = plt.Normalize(-20, 20)
-        ue_macro = self.macro_datarates(self.datarates)
-        # ue_utilities =
-
-        # plot UEs
-        for ue in self.active:
-            # TODO: UTILITY!
-            utility = ue_macro[ue]
+        norm = plt.Normalize(self.utility.lower, self.utility.upper)
+        
+        for ue, utility in self.utilities.items():
+            # plot UE by its (unscaled) utility
+            utility = self.utility.unscale(utility)
             color = colormap(norm(utility))
 
-            ax.plot(*ue.point.buffer(radius).exterior.xy,
-                    color=color, marker="o", markersize=8)
+            ax.scatter(ue.point.x, ue.point.y, s=200, zorder=2, color=color, marker='o')
             ax.annotate(ue.ue_id, xy=(ue.point.x, ue.point.y),
                         ha='center', va='center')
 
@@ -309,21 +317,22 @@ class MComEnv(gym.Env):
                 0, -25), ha='center', va='bottom', textcoords='offset points')
 
             # plot ranges where connections to the BS are possible or yield 1 MB/s
+            # TODO: how to get these ranges?
             range_conn = bs.point.buffer(69)
             range_1mbit = bs.point.buffer(46)
             ax.plot(*range_1mbit.exterior.xy, color='black')
             ax.plot(*range_conn.exterior.xy, color='gray')
 
-        # plot BS-UE connections in terms of their QoE
         for bs in self.basestations:
             for ue in self.connections[bs]:
-                rate = self.datarates[(bs, ue)]
-                color = colormap(norm(rate))
+                # plot connection's color dependend on its utility
+                drate = self.datarates[(bs, ue)]
+                utilty = self.utility.utility(drate)
+                color = colormap(norm(utilty))
 
-            # add black background/borders for lines to make them better visible if the utility color is too light
-            ax.plot([ue.point.x, bs.point.x], [ue.point.y, bs.point.y], color=color,
-                    path_effects=[pe.SimpleLineShadow(shadow_color='black'),
-                                  pe.Normal()])
+                # add black background/borders for lines to make them better visible if the utility color is too light
+                ax.plot([ue.point.x, bs.point.x], [ue.point.y, bs.point.y], color=color, path_effects=[
+                        pe.SimpleLineShadow(shadow_color='black'), pe.Normal()], linewidth=3, zorder=-1)
 
         # remove simulation axis's ticks and spines
         ax.get_xaxis().set_visible(False)
@@ -335,11 +344,11 @@ class MComEnv(gym.Env):
         ax.spines['left'].set_visible(False)
 
     def render_dashboard(self, ax) -> None:
-        # TODO!!!!
-        avg_dr = 0
 
         mean_utility = self.metrics['mean_utility'][-1]
         total_mean_utility = np.mean(self.metrics['mean_utility'])
+        mean_datarate = self.metrics['mean_datarate'][-1]
+        total_mean_datarate = np.mean(self.metrics['mean_datarate'])
 
         # remove simulation axis's ticks and spines
         ax.get_xaxis().set_visible(False)
@@ -351,8 +360,8 @@ class MComEnv(gym.Env):
         ax.spines['left'].set_visible(False)
 
         text = [
-            ['Curr. Avg. Rate', f'{avg_dr:.2f} GB/s'],
-            ['Total Avg. Rate', f'{avg_dr:.2f} GB/s'],
+            ['Curr. Avg. Rate', f'{mean_datarate:.2f} GB/s'],
+            ['Total Avg. Rate', f'{total_mean_datarate:.2f} GB/s'],
             ['Curr. Avg. Utility', f'{mean_utility:.2f}'],
             ['Total Avg. Utility', f'{total_mean_utility:.2f}']
         ]

@@ -15,21 +15,19 @@ class MultiUserReward:
 
         # compute average utility of UEs for each BS
         # set default to 0.0 if no UEs are connected
-        total_bs_utilities = {
-            bs: sum(utilities[ue] for ue in ues) for bs, ues in connections.items()}
+        bs_utilities = {bs: sum(utilities[ue] for ue in ues)
+                        for bs, ues in connections.items()}
 
         rewards = {}
         for ue in utilities:
             # utilities are broadcasted, i.e., aggregate utilities of BSs in range
-            total_ngbr_utility = sum(
-                total_bs_utilities[bs] for bs in connectable[ue])
+            ngbr_utility = sum(bs_utilities[bs] for bs in connectable[ue])
 
             # calculate rewards as average weighted by the number of each BSs' connections
-            total_ngbr_connections = sum(
+            ngbr_connections = sum(
                 len(connections[bs]) for bs in connectable[ue])
-            reward = (total_ngbr_utility +
-                      utilities[ue]) / (total_ngbr_connections + 1)
 
-            rewards[ue.ue_id] = reward
+            reward = (ngbr_utility + utilities[ue]) / (ngbr_connections + 1)
+            rewards[ue] = reward
 
-        return reward
+        return rewards

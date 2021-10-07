@@ -9,10 +9,18 @@ class BoundedLogUtility:
         self.upper = upper
         self.coeffs = coeffs
 
-    def utility(self, ue_datarate):
+    def utility(self, datarate):
         w1, w2, w3 = self.coeffs
-        utility = np.clip(w1 * np.log(w2 + ue_datarate) /
-                          np.log(w3), self.lower, self.upper)
+        if datarate <= 0.0:
+            return self.lower
 
-        # normalize utility to bounds (-1, 1)
+        utility = np.clip(w1 * np.log(w2 + datarate) / np.log(w3), self.lower, self.upper)
+        return utility
+
+    def scale(self, utility):
+        # scale utility to range [-1, 1]
         return (utility - self.lower) / (self.upper - self.lower)
+
+    def unscale(self, utility):
+        # invert scaling of utility
+        return utility * (self.upper - self.lower) + self.lower
