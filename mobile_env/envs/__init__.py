@@ -1,2 +1,2 @@
 # import envs module so they register themselves
-import mobile_env.small
+import mobile_env.envs.small

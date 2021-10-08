@@ -47,8 +47,12 @@ class MComEnv(gym.Env):
         self.done = None
 
         # defines the simulation's overall basestations and UEs
-        self.basestations: List[BaseStation] = stations
-        self.users: List[UserEquipment] = ues
+        self.stations: Dict[int, BaseStation] = {
+            bs.bs_id: bs for bs in stations}
+        self.users: Dict[int, UserEquipment] = {ue.ue_id: ue for ue in ues}
+
+        self.NUM_STATIONS = len(self.stations)
+        self.NUM_USERS = len(self.users)
 
         # stores what UEs are currently active, i.e., request service
         self.active: List[UserEquipment] = None
@@ -58,6 +62,12 @@ class MComEnv(gym.Env):
         self.datarates: Dict[Tuple[BaseStation, UserEquipment], float] = None
         # stores each UE's (scaled) utility
         self.utilities: Dict[UserEquipment, float] = None
+
+        # define action space for multi-agent setting
+        self.action_space = gym.spaces.Dict({ue.ue_id: gym.spaces.Discrete(
+            self.NUM_STATIONS + 1) for ue in self.users.values()})
+
+        # TODO: define observation spaec for multi-agent setting
 
         # parameters for pygame visualization
         self.window_width, self.window_height = 600, 400
@@ -92,12 +102,14 @@ class MComEnv(gym.Env):
         self.time = 0.0
         self.done = False
 
+        # TODO: not possible anymore!!
         # sort UEs by the time they begin to request service
-        self.users = sorted(self.users, key=lambda ue: ue.stime)
+        # self.users = sorted(self.users, key=lambda ue: ue.stime)
 
         # initially not all UEs request downlink connections (service)
         # sort active UEs by the time they exit (ascending exit time)
-        self.active = sorted([ue for ue in self.users if ue.stime <= 0])
+        self.active = sorted(
+            [ue for ue in self.users.values() if ue.stime <= 0])
 
         # reset established downlink connections (default empty set)
         self.connections = defaultdict(set)
@@ -107,31 +119,20 @@ class MComEnv(gym.Env):
         self.utilities = {}
 
         # reset positions of UEs to their initial position
-        for ue in self.users:
-            ue.reset()
+        for ue in self.users.values():
+            ue.x, ue.y = ue.init_pos
 
         # reset simulation metrics
         self.metrics = defaultdict(list)
 
         return self.observations()
 
-    def close(self) -> None:
-        self.done = True
-        pygame.quit()
-        self.window = None
-
-    def observations(self):
-        pass
-
-    def info(self):
-        return {'time': self.time}
-
-    def update_connection(self, action: int, ue: UserEquipment):
+    def apply_action(self, action: int, ue: UserEquipment) -> None:
         # do not apply update to connections if IGNORE_ACTION is selected
-        if action == self.IGNORE_ACTION:
+        if action == self.IGNORE_ACTION or ue not in self.active:
             return
 
-        bs = self.basestations[action - 1]
+        bs = self.stations[action - 1]
         # disconnect to basestation if user equipment already connected
         if ue in self.connections[bs]:
             self.connections[bs].remove(ue)
@@ -140,24 +141,33 @@ class MComEnv(gym.Env):
         elif self.check_connectivity(bs, ue):
             self.connections[bs].add(ue)
 
-    def check_connectivity(self, bs, ue):
+    def check_connectivity(self, bs: BaseStation, ue: UserEquipment) -> bool:
         """Connection can be established if SNR exceeds threshold of UE."""
         snr = self.channel.snr(bs, ue)
         return snr > ue.snr_threshold
 
-    def available_connections(self):
+    def available_connections(self) -> Dict:
         """Returns dict of what basestations users could connect to."""
-        connectable = {ue: {bs for bs in self.basestations if self.check_connectivity(
-            bs, ue)} for ue in self.users}
+        connectable = {ue: {bs for bs in self.stations.values(
+        ) if self.check_connectivity(bs, ue)} for ue in self.users.values()}
         return connectable
 
-    def step(self, actions: Tuple[int, ...]):
+    def update_connections(self) -> None:
+        """Release connections where BS and UE moved out-of-range."""
+        connections = {bs: set(ue for ue in ues if self.check_connectivity(
+            bs, ue)) for bs, ues in self.connections.items()}
+        self.connections.clear()
+        self.connections.update(connections)
+
+    def step(self, actions: Dict[int, int]):
         assert not self.done, 'step() called on already terminated episode'
 
-        # TODO: how to handle missing actions? just ignore? SO FAR: YES
+        # release established connections that are out-of-range (due to movement)
+        self.update_connections()
+
         # TODO: add penalties for changing connections?
-        for action, ue in zip(actions, self.active):
-            self.update_connection(action, ue)
+        for ue_id, action in actions.items():
+            self.apply_action(action, self.users[ue_id])
 
         # track total number of (BS, UE) connections
         num_connections = sum([len(con) for con in self.connections.values()])
@@ -168,7 +178,7 @@ class MComEnv(gym.Env):
 
         # update the datarate of each (BS, UE) connection
         self.datarates = {}
-        for bs in self.basestations:
+        for bs in self.stations.values():
             drates = self.station_allocation(bs)
             self.datarates.update(drates)
 
@@ -210,7 +220,7 @@ class MComEnv(gym.Env):
 
         # update the data rate of each (BS, UE) connection after movement
         # values must be updated before computing observations
-        for bs in self.basestations:
+        for bs in self.stations.values():
             drates = self.station_allocation(bs)
             self.datarates.update(drates)
 
@@ -236,9 +246,44 @@ class MComEnv(gym.Env):
             ue_datarates.update({ue: datarate})
         return ue_datarates
 
+    def station_allocation(self, bs) -> Dict:
+        connected = self.connections[bs]
+
+        # compute SNR & max. data rate for each connected user equipment
+        snrs = [self.channel.snr(bs, ue) for ue in connected]
+
+        # UE's max. data rate achievable when BS schedules all resources to it
+        max_allocation = [bs.bw * np.log2(1 + snr) for snr in snrs]
+
+        # BS shares resources among connected user equipments
+        rates = self.scheduler.share(bs, max_allocation)
+
+        return {(bs, ue): rate for ue, rate in zip(connected, rates)}
+
+    def info(self):
+        pass
+
+    def reward(self, utilities):
+        pass
+
+    def observations(self):
+        # (1) observation of current connections
+        # get connections of each UE as mapping UE -> BSs
+        connections = defaultdict(list)
+        for bs, ues in self.connections.items():
+            for ue in ues:
+                connections[ue].append(bs)
+
+        # encode each UE's connections as one-hot vector
+        conn_obs = {}
+        for ue, bss in connections.items():
+            onehot = np.zeros(self.NUM_USERS)
+            onehot[bss] = 1
+            conn_obs[ue] = onehot
+
     def render(self, mode="human"):
         # set up matplotlib figure & axis configuration
-        fig = plt.figure(figsize=(7.5, 4))
+        fig = plt.figure(figsize=(7.5, 3.7))
         gs = fig.add_gridspec(ncols=2, nrows=3, width_ratios=(3, 2), height_ratios=(
             2, 3, 3), hspace=0.45, wspace=0.2, top=0.95, bottom=0.15, left=0.025, right=0.955)
 
@@ -298,17 +343,18 @@ class MComEnv(gym.Env):
         # define colormap for unscaled utilities
         colormap = cm.get_cmap('RdYlGn')
         norm = plt.Normalize(self.utility.lower, self.utility.upper)
-        
+
         for ue, utility in self.utilities.items():
             # plot UE by its (unscaled) utility
             utility = self.utility.unscale(utility)
             color = colormap(norm(utility))
 
-            ax.scatter(ue.point.x, ue.point.y, s=200, zorder=2, color=color, marker='o')
+            ax.scatter(ue.point.x, ue.point.y, s=200,
+                       zorder=2, color=color, marker='o')
             ax.annotate(ue.ue_id, xy=(ue.point.x, ue.point.y),
                         ha='center', va='center')
 
-        for bs in self.basestations:
+        for bs in self.stations.values():
             # plot BS symbol and annonate by its BS ID
             ax.plot(bs.point.x, bs.point.y, marker=BS_SYMBOL,
                     markersize=30, markeredgewidth=0.1, color='black')
@@ -323,7 +369,7 @@ class MComEnv(gym.Env):
             ax.plot(*range_1mbit.exterior.xy, color='black')
             ax.plot(*range_conn.exterior.xy, color='gray')
 
-        for bs in self.basestations:
+        for bs in self.stations.values():
             for ue in self.connections[bs]:
                 # plot connection's color dependend on its utility
                 drate = self.datarates[(bs, ue)]
@@ -359,15 +405,13 @@ class MComEnv(gym.Env):
         ax.spines['right'].set_visible(False)
         ax.spines['left'].set_visible(False)
 
-        text = [
-            ['Curr. Avg. Rate', f'{mean_datarate:.2f} GB/s'],
-            ['Total Avg. Rate', f'{total_mean_datarate:.2f} GB/s'],
-            ['Curr. Avg. Utility', f'{mean_utility:.2f}'],
-            ['Total Avg. Utility', f'{total_mean_utility:.2f}']
-        ]
+        rows = ['Current', 'History']
+        cols = ['Avg. DR [GB/s]', 'Avg. Utility']
+        text = [[f'{mean_datarate:.3f}', f'{mean_utility:.3f}'],
+                [f'{total_mean_datarate:.3}', f'{total_mean_utility:.3f}']]
 
-        table = ax.table(text, cellLoc='left', edges='open',
-                         loc='upper center', bbox=[0.0, -0.25, 1.0, 1.25])
+        table = ax.table(text, rowLabels=rows, colLabels=cols, cellLoc='center',
+                        edges='B', loc='upper center', bbox=[0.0, -0.25, 1.0, 1.25])
         table.auto_set_font_size(False)
         table.set_fontsize(11)
 
@@ -390,21 +434,7 @@ class MComEnv(gym.Env):
         ax.set_xlim([0.0, self.EP_MAX_TIME])
         ax.set_ylim([0.0, len(self.users)])
 
-    def station_allocation(self, bs):
-        connected = self.connections[bs]
-
-        # compute SNR & max. data rate for each connected user equipment
-        snrs = [self.channel.snr(bs, ue) for ue in connected]
-
-        # UE's max. data rate achievable when BS schedules all resources to it
-        max_allocation = [bs.bw * np.log2(1 + snr) for snr in snrs]
-
-        # BS shares resources among connected user equipments
-        rates = self.scheduler.share(bs, max_allocation)
-
-        return {(bs, ue): rate for ue, rate in zip(connected, rates)}
-
-    @staticmethod
-    def compute_reward(datarates):
-        # TODO:
-        return 0.0
+    def close(self) -> None:
+        self.done = True
+        pygame.quit()
+        self.window = None

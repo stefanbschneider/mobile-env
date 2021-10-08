@@ -36,5 +36,5 @@ class MComSmall(MComEnv):
 
 gym.envs.register(
     id="mobile-small-v0",
-    entry_point="mobile_env.small:MComSmall"
+    entry_point="mobile_env.envs.small:MComSmall"
 )
