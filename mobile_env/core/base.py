@@ -6,9 +6,6 @@ from collections import Counter, defaultdict
 import gym
 import pygame
 import matplotlib
-#
-# matplotlib.use("Agg")
-#
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patheffects as pe
@@ -22,7 +19,6 @@ from mobile_env.core.schedules import ResourceFair
 from mobile_env.core.utilities import BoundedLogUtility
 from mobile_env.core.entities import BaseStation, UserEquipment
 from mobile_env.core.movement import RandomWaypointMovement
-from mobile_env.core.rewards import MultiUserReward
 
 
 class MComEnv(gym.Env):
@@ -39,7 +35,6 @@ class MComEnv(gym.Env):
         self.scheduler = config['scheduler'](**config['scheduler_params'])
         self.movement = config['movement'](**config['movement_params'])
         self.utility = config['utility'](**config['utility_params'])
-        self.reward = config['reward'](**config['reward_params'])
 
         # define parameters that track the simulation's progress
         self.EP_MAX_TIME = config['EP_MAX_TIME']
@@ -67,12 +62,11 @@ class MComEnv(gym.Env):
         self.action_space = gym.spaces.Dict({ue.ue_id: gym.spaces.Discrete(
             self.NUM_STATIONS + 1) for ue in self.users.values()})
 
-        # TODO: define observation spaec for multi-agent setting
+        # define observation spaec for multi-agent setting
+        self.observation_space = gym.spaces.Dict({ue.ue_id: gym.spaces.Box(
+            low=-1, high=1, shape=(4 * self.NUM_STATIONS + 1,), dtype=np.float32) for ue in self.users.values()})
 
         # parameters for pygame visualization
-        self.window_width, self.window_height = 600, 400
-        self.hzoom = self.window_height / self.height
-        self.wzoom = self.window_width / self.width
         self.window = None
         self.clock = None
 
@@ -81,11 +75,11 @@ class MComEnv(gym.Env):
 
         self.reset()
 
-    @classmethod
+    @ classmethod
     def default_config(cls):
         # set up configuration of environment
-        config = {'width': 100, 'height': 100, 'channel': OkumuraHata, 'scheduler': ResourceFair,
-                  'movement': RandomWaypointMovement, 'utility': BoundedLogUtility, 'reward': MultiUserReward}
+        config = {'width': 200, 'height': 200, 'channel': OkumuraHata, 'scheduler': ResourceFair,
+                  'movement': RandomWaypointMovement, 'utility': BoundedLogUtility}
         config.update({'channel_params': {}})
         config.update({'scheduler_params': {}})
         config.update(
@@ -95,21 +89,17 @@ class MComEnv(gym.Env):
         config.update({'reward_params': {}})
 
         # set up configuration of evaluation
-        config.update({'EP_MAX_TIME': 100})
+        config.update({'EP_MAX_TIME': 1000})
         return config
 
     def reset(self):
         self.time = 0.0
         self.done = False
 
-        # TODO: not possible anymore!!
-        # sort UEs by the time they begin to request service
-        # self.users = sorted(self.users, key=lambda ue: ue.stime)
-
         # initially not all UEs request downlink connections (service)
         # sort active UEs by the time they exit (ascending exit time)
         self.active = sorted(
-            [ue for ue in self.users.values() if ue.stime <= 0])
+            [ue for ue in self.users.values() if ue.stime <= 0], key=lambda ue: ue.extime)
 
         # reset established downlink connections (default empty set)
         self.connections = defaultdict(set)
@@ -125,9 +115,11 @@ class MComEnv(gym.Env):
         # reset simulation metrics
         self.metrics = defaultdict(list)
 
+        print({ue_id: obs.shape for ue_id, obs in self.observations().items()})
         return self.observations()
 
     def apply_action(self, action: int, ue: UserEquipment) -> None:
+        """Connect or disconnect `ue` to/from basestation `action`."""
         # do not apply update to connections if IGNORE_ACTION is selected
         if action == self.IGNORE_ACTION or ue not in self.active:
             return
@@ -176,26 +168,24 @@ class MComEnv(gym.Env):
         ues_connected = len(set.union(set(), *self.connections.values()))
         self.metrics['ues_connected'].append(ues_connected)
 
-        # update the datarate of each (BS, UE) connection
+        # update each (BS, UE) connection's data rate after connection re-assignment
         self.datarates = {}
         for bs in self.stations.values():
             drates = self.station_allocation(bs)
             self.datarates.update(drates)
 
-        # track the average data rate of UEs
-        mean_datarate = np.mean(list(self.datarates.values()))
+        # update macro (aggregated) data rates for each UE
+        self.macro = self.macro_datarates(self.datarates)
+        mean_datarate = np.mean(
+            list(self.macro.values())) if self.macro else 0.0
         self.metrics['mean_datarate'].append(mean_datarate)
-
-        # compute macro datarates for each UE & log its mean value
-        macro_datarates = self.macro_datarates(self.datarates)
-        mean_macro_datarate = np.mean(list(macro_datarates.values()))
-        self.metrics['mean_macro_datarates'].append(mean_macro_datarate)
 
         # compute utilities from UEs' data rates & log its mean value
         self.utilities = {ue: self.utility.utility(
-            macro_datarates[ue]) for ue in self.active}
-        # track the average utility of UEs
-        mean_utility = np.mean(list(self.utilities.values()))
+            self.macro[ue]) for ue in self.active}
+        # track the average utility of UEs; set to lower bound if no connections are active
+        mean_utility = np.mean(list(self.utilities.values())
+                               ) if self.utilities else self.utility.lower
         self.metrics['mean_utility'].append(mean_utility)
 
         #  scale utilities to range [-1, 1] before computing rewards
@@ -203,42 +193,36 @@ class MComEnv(gym.Env):
             utility) for ue, utility in self.utilities.items()}
 
         # compute rewards from utility for each UE
-        connectable = self.available_connections()
-        rewards = self.reward.rewards(
-            self.utilities, self.connections, connectable)
+        rewards = self.reward()
 
         # move user equipments around; update positions of UEs
         for ue in self.active:
             ue.x, ue.y = self.movement.move(ue)
 
-        # TODO: what is the interface for handling added / removed agents!?
-        # identify user equipments that left the map
-        #left = [ue for ue in self.users if self.check_left_map(ue)]
-        # terminate all their remaining connections
+        # terminate existing connections for exiting UEs
+        leaving = set([ue for ue in self.active if ue.extime <= self.time])
+        for bs, ues in self.connections.items():
+            self.connections[bs] = ues - leaving
 
-        # (4) add new UEs; remove UEs that leave map (?)
+        # update list of active UEs & add those that begin to request service
+        self.active = [ue for ue in self.users.values() if ue.extime >
+                       self.time and ue.stime <= self.time]
 
         # update the data rate of each (BS, UE) connection after movement
-        # values must be updated before computing observations
         for bs in self.stations.values():
             drates = self.station_allocation(bs)
             self.datarates.update(drates)
 
         # compute observations for next step
-        observation = None
+        observation = self.observations()
 
-        # update internal metrics
-
-        # (7) update time
-
-        # update metrics
+        # update time and check whether episode is done
         self.time += 1
-
         if self.time >= self.EP_MAX_TIME:
             self.done = True
 
         info = {}
-        return self.observations, rewards, self.done, info
+        return observation, rewards, self.done, info
 
     def macro_datarates(self, datarates):
         ue_datarates = Counter()
@@ -247,6 +231,7 @@ class MComEnv(gym.Env):
         return ue_datarates
 
     def station_allocation(self, bs) -> Dict:
+        """Schedule BS's resources (e.g. phy. res. blocks) to connected UEs."""
         connected = self.connections[bs]
 
         # compute SNR & max. data rate for each connected user equipment
@@ -263,23 +248,100 @@ class MComEnv(gym.Env):
     def info(self):
         pass
 
-    def reward(self, utilities):
-        pass
+    def reward(self):
+        """
+        Define each UEs' reward as its own utility aggregated with the average utility of nearby stations.
+        """
+        # check what BS-UE connections are possible
+        connectable = self.available_connections()
 
-    def observations(self):
-        # (1) observation of current connections
-        # get connections of each UE as mapping UE -> BSs
-        connections = defaultdict(list)
-        for bs, ues in self.connections.items():
-            for ue in ues:
-                connections[ue].append(bs)
+        # compute average utility of UEs for each BS; set to lower bound if no UEs are connected
+        bs_utilities = self.station_utilities()
 
-        # encode each UE's connections as one-hot vector
-        conn_obs = {}
-        for ue, bss in connections.items():
-            onehot = np.zeros(self.NUM_USERS)
-            onehot[bss] = 1
-            conn_obs[ue] = onehot
+        def ue_utility(ue):
+            # utilities are broadcasted, i.e., aggregate utilities of BSs in range
+            ngbr_utility = sum(bs_utilities[bs] for bs in connectable[ue])
+
+            # calculate rewards as average weighted by the number of each BSs' connections
+            ngbr_counts = sum(len(self.connections[bs])
+                              for bs in connectable[ue])
+
+            return (ngbr_utility + self.utilities[ue]) / (ngbr_counts + 1)
+
+        rewards = {ue.ue_id: ue_utility(ue) for ue in self.active}
+        return rewards
+
+    def station_utilities(self) -> Dict[BaseStation, UserEquipment]:
+        """Compute average utility of UEs connected to the basestation."""
+        # set utility of BS with no active connections (idle BS) to (scaled) lower utility bound
+        idle = self.utility.scale(self.utility.lower)
+
+        util = {bs: sum(self.utilities[ue] for ue in self.connections[bs]) / len(
+            self.connections[bs]) if self.connections[bs] else idle for bs in self.stations.values()}
+
+        return util
+
+    def observations(self) -> Dict[int, np.ndarray]:
+        # fix ordering of BSs for observations
+        stations = sorted(
+            [bs for bs in self.stations.values()], key=lambda bs: bs.bs_id)
+
+        # compute average utility of each basestation's connections
+        bs_utilities = self.station_utilities()
+
+        def ue_observations(ue):
+            """Define local observation vector for UEs."""
+            # (1) observation of current connections
+            # encodes UE's connections as one-hot vector
+            connections = [bs for bs in stations if ue in self.connections[bs]]
+            onehot = np.zeros(self.NUM_STATIONS)
+            onehot[[bs.bs_id for bs in connections]] = 1
+
+            # (2) (normalized) SNR between UE to each BS
+            snrs = [self.channel.snr(bs, ue) for bs in stations]
+            max_snr = max(snrs)
+            snrs = np.asarray([snr / max_snr for snr in snrs])
+
+            # (3) include normalized utility of UE
+            utility = self.utilities[ue] if ue in self.utilities else self.utility.scale(
+                self.utility.lower)
+            utility = np.asarray([utility])
+
+            # (4) receive broadcast of average BS utilities of BSs in range
+            # if broadcast is not received, set utility to lower bound
+            idle = self.utility.scale(self.utility.lower)
+            util_bcast = {bs: util if self.check_connectivity(
+                bs, ue) else idle for bs, util in bs_utilities.items()}
+            util_bcast = np.asarray([util_bcast[bs] for bs in stations])
+
+            # (5) receive broadcast of (normalized) connected UE count
+            # if broadcast is not received, set UE connection count to zero
+            num_connected = [len(self.connections[bs]) if self.check_connectivity(
+                bs, ue) else 0.0 for bs in stations]
+            total_conn = max(1, sum(num_connected))
+            num_connected = np.asarray(
+                [count / total_conn for count in num_connected])
+
+            # flatten UE's observation vector
+            return np.concatenate([onehot, snrs, utility, util_bcast, num_connected])
+
+        def dummy_observations(ue):
+            """Define dummy observation for non-active UEs."""
+            onehot = np.zeros(self.NUM_STATIONS)
+            snrs = np.zeros(self.NUM_STATIONS)
+            utility = np.asarray([self.utility.scale(self.utility.lower)])
+            idle = self.utility.scale(self.utility.lower)
+            util_bcast = idle * np.ones(self.NUM_STATIONS)
+            num_connected = np.ones(self.NUM_STATIONS)
+
+            return np.concatenate([onehot, snrs, utility, util_bcast, num_connected])
+
+        # define dummy observations for non-active UEs
+        obs = {ue.ue_id: dummy_observations(ue) for ue in self.users.values()}
+        obs.update({ue.ue_id: ue_observations(ue) for ue in self.active})
+        # cast observation vector to np.float16
+        obs = {ue_id: np.asarray(ue_obs, dtype=np.float16) for ue_id, ue_obs in obs.items()} 
+        return obs
 
     def render(self, mode="human"):
         # set up matplotlib figure & axis configuration
@@ -340,14 +402,14 @@ class MComEnv(gym.Env):
                 self.close()
 
     def render_simulation(self, ax) -> None:
-        # define colormap for unscaled utilities
         colormap = cm.get_cmap('RdYlGn')
-        norm = plt.Normalize(self.utility.lower, self.utility.upper)
+        # define normalization for unscaled utilities
+        unorm = plt.Normalize(self.utility.lower, self.utility.upper)
 
         for ue, utility in self.utilities.items():
             # plot UE by its (unscaled) utility
             utility = self.utility.unscale(utility)
-            color = colormap(norm(utility))
+            color = colormap(unorm(utility))
 
             ax.scatter(ue.point.x, ue.point.y, s=200,
                        zorder=2, color=color, marker='o')
@@ -371,10 +433,11 @@ class MComEnv(gym.Env):
 
         for bs in self.stations.values():
             for ue in self.connections[bs]:
-                # plot connection's color dependend on its utility
-                drate = self.datarates[(bs, ue)]
-                utilty = self.utility.utility(drate)
-                color = colormap(norm(utilty))
+                # plot connection's color dependend on its contribution to the UE's total utility
+                share = self.datarates[(bs, ue)] / self.macro[ue]
+                # weight share of connection's data rate of macro data rate by UE's utility
+                share = share * self.utility.unscale(self.utilities[ue])
+                color = colormap(unorm(share))
 
                 # add black background/borders for lines to make them better visible if the utility color is too light
                 ax.plot([ue.point.x, bs.point.x], [ue.point.y, bs.point.y], color=color, path_effects=[
@@ -388,6 +451,9 @@ class MComEnv(gym.Env):
         ax.spines['bottom'].set_visible(False)
         ax.spines['right'].set_visible(False)
         ax.spines['left'].set_visible(False)
+
+        ax.set_xlim([0, self.width])
+        ax.set_ylim([0, self.height])
 
     def render_dashboard(self, ax) -> None:
 
@@ -411,7 +477,7 @@ class MComEnv(gym.Env):
                 [f'{total_mean_datarate:.3}', f'{total_mean_utility:.3f}']]
 
         table = ax.table(text, rowLabels=rows, colLabels=cols, cellLoc='center',
-                        edges='B', loc='upper center', bbox=[0.0, -0.25, 1.0, 1.25])
+                         edges='B', loc='upper center', bbox=[0.0, -0.25, 1.0, 1.25])
         table.auto_set_font_size(False)
         table.set_fontsize(11)
 

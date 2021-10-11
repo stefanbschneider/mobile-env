@@ -12,7 +12,7 @@ class MComSmall(MComEnv):
     def __init__(self):
         config = self.default_config()
 
-        stations = [(50, 50), (100, 50)]
+        stations = [(110, 130), (65, 80)]
         stations = [(x, y) for x, y in stations]
         stations = [BaseStation(bs_id, pos, **config['bs'])
                     for bs_id, pos in enumerate(stations)]
@@ -29,7 +29,7 @@ class MComSmall(MComEnv):
         config = super().default_config()
         config.update({'bs': {'bw': 9e6, 'freq': 2500,
                               'tx': 30, 'height': 50}})
-        config.update({'ue': {'stime': 0, 'extime': 100, 'velocity': 1.0,
+        config.update({'ue': {'stime': 0, 'extime': config['EP_MAX_TIME'], 'velocity': 1.5,
                               'snr_tr': 2e-8, 'noise': 1e-9, 'height': 1.5}})
         return config
 
