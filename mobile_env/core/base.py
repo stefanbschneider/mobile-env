@@ -69,6 +69,8 @@ class MComEnv(gym.Env):
         # parameters for pygame visualization
         self.window = None
         self.clock = None
+        self.conn_isolines = None
+        self.mb_isolones = None
 
         # track performance metrics for the simulation
         self.metrics = None
@@ -77,6 +79,7 @@ class MComEnv(gym.Env):
 
     @ classmethod
     def default_config(cls):
+        """Set default configuration of environment dynamics."""
         # set up configuration of environment
         config = {'width': 200, 'height': 200, 'channel': OkumuraHata, 'scheduler': ResourceFair,
                   'movement': RandomWaypointMovement, 'utility': BoundedLogUtility}
@@ -93,6 +96,7 @@ class MComEnv(gym.Env):
         return config
 
     def reset(self):
+        """Reset environment to starting state."""
         self.time = 0.0
         self.done = False
 
@@ -115,7 +119,6 @@ class MComEnv(gym.Env):
         # reset simulation metrics
         self.metrics = defaultdict(list)
 
-        print({ue_id: obs.shape for ue_id, obs in self.observations().items()})
         return self.observations()
 
     def apply_action(self, action: int, ue: UserEquipment) -> None:
@@ -225,6 +228,7 @@ class MComEnv(gym.Env):
         return observation, rewards, self.done, info
 
     def macro_datarates(self, datarates):
+        """Compute aggregated UE data rates given all its simultaneous connections."""
         ue_datarates = Counter()
         for (bs, ue), datarate in self.datarates.items():
             ue_datarates.update({ue: datarate})
@@ -238,7 +242,7 @@ class MComEnv(gym.Env):
         snrs = [self.channel.snr(bs, ue) for ue in connected]
 
         # UE's max. data rate achievable when BS schedules all resources to it
-        max_allocation = [bs.bw * np.log2(1 + snr) for snr in snrs]
+        max_allocation = [self.channel.datarate(bs, ue, snr) for snr, ue in zip(snrs, connected)]
 
         # BS shares resources among connected user equipments
         rates = self.scheduler.share(bs, max_allocation)
@@ -249,9 +253,7 @@ class MComEnv(gym.Env):
         pass
 
     def reward(self):
-        """
-        Define each UEs' reward as its own utility aggregated with the average utility of nearby stations.
-        """
+        """Define each UEs' reward as its own utility aggregated with the average utility of nearby stations."""
         # check what BS-UE connections are possible
         connectable = self.available_connections()
 
@@ -280,6 +282,17 @@ class MComEnv(gym.Env):
             self.connections[bs]) if self.connections[bs] else idle for bs in self.stations.values()}
 
         return util
+
+    def bs_isolines(self, drate):
+        """Compute isolones where UEs could receive at least `drate` max. data rate from BS."""
+        isolines = {}
+        config = self.default_config()['ue']
+
+        for bs in self.stations.values():
+            isolines[bs] = self.channel.isoline(bs, config, (self.width, self.height), drate)
+
+        return isolines
+
 
     def observations(self) -> Dict[int, np.ndarray]:
         # fix ordering of BSs for observations
@@ -343,7 +356,7 @@ class MComEnv(gym.Env):
         obs = {ue_id: np.asarray(ue_obs, dtype=np.float16) for ue_id, ue_obs in obs.items()} 
         return obs
 
-    def render(self, mode="human"):
+    def render(self, mode="human") -> None:
         # set up matplotlib figure & axis configuration
         fig = plt.figure(figsize=(7.5, 3.7))
         gs = fig.add_gridspec(ncols=2, nrows=3, width_ratios=(3, 2), height_ratios=(
@@ -368,6 +381,10 @@ class MComEnv(gym.Env):
 
             # set window's caption and background color
             pygame.display.set_caption("MComEnv")
+
+            # calculate isoline contours for BSs' connectivity range
+            self.conn_isolines = self.bs_isolines(0.0)
+            self.mb_isolines =  self.bs_isolines(1.0)
 
         # clear surface
         self.window.fill("white")
@@ -425,11 +442,8 @@ class MComEnv(gym.Env):
                 0, -25), ha='center', va='bottom', textcoords='offset points')
 
             # plot ranges where connections to the BS are possible or yield 1 MB/s
-            # TODO: how to get these ranges?
-            range_conn = bs.point.buffer(69)
-            range_1mbit = bs.point.buffer(46)
-            ax.plot(*range_1mbit.exterior.xy, color='black')
-            ax.plot(*range_conn.exterior.xy, color='gray')
+            ax.scatter(*self.conn_isolines[bs], color='gray', s=3)
+            ax.scatter(*self.mb_isolines[bs], color='black', s=3)
 
         for bs in self.stations.values():
             for ue in self.connections[bs]:
