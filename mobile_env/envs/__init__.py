@@ -1,1 +1,2 @@
-from mobile_env.envs.base_env import *
+# import envs module so they register themselves
+import mobile_env.envs.small
