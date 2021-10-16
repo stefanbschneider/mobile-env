@@ -24,7 +24,7 @@ from mobile_env.core.movement import RandomWaypointMovement
 class MComEnv(gym.Env):
     IGNORE_ACTION = 0
 
-    def __init__(self, config=None, stations=None, ues=None) -> None:
+    def __init__(self, stations, ues, config=None) -> None:
         super().__init__()
         if config is None:
             config = self.default_config
@@ -45,6 +45,9 @@ class MComEnv(gym.Env):
         self.stations: Dict[int, BaseStation] = {
             bs.bs_id: bs for bs in stations}
         self.users: Dict[int, UserEquipment] = {ue.ue_id: ue for ue in ues}
+
+        assert len(self.stations) > 0, 'Cannot simulate without any BS.'
+        assert len(self.users) > 0, 'Cannot simulate without any UE.'
 
         self.NUM_STATIONS = len(self.stations)
         self.NUM_USERS = len(self.users)
@@ -89,7 +92,6 @@ class MComEnv(gym.Env):
             {'movement_params': {'width': config['width'], 'height': config['height']}})
         config.update(
             {'utility_params': {'lower': -20, 'upper': 20, 'coeffs': (10, 0, 10)}})
-        config.update({'reward_params': {}})
 
         # set up configuration of evaluation
         config.update({'EP_MAX_TIME': 1000})
@@ -242,7 +244,8 @@ class MComEnv(gym.Env):
         snrs = [self.channel.snr(bs, ue) for ue in connected]
 
         # UE's max. data rate achievable when BS schedules all resources to it
-        max_allocation = [self.channel.datarate(bs, ue, snr) for snr, ue in zip(snrs, connected)]
+        max_allocation = [self.channel.datarate(
+            bs, ue, snr) for snr, ue in zip(snrs, connected)]
 
         # BS shares resources among connected user equipments
         rates = self.scheduler.share(bs, max_allocation)
@@ -289,12 +292,21 @@ class MComEnv(gym.Env):
         config = self.default_config()['ue']
 
         for bs in self.stations.values():
-            isolines[bs] = self.channel.isoline(bs, config, (self.width, self.height), drate)
+            isolines[bs] = self.channel.isoline(
+                bs, config, (self.width, self.height), drate)
 
         return isolines
 
-
     def observations(self) -> Dict[int, np.ndarray]:
+        """Flatten (internal) observation vector to vector shape per UE."""
+        obs = self._observation()
+        # get list of keys used to represent each UE
+        keys = next(iter(obs.values())).keys()
+
+        # concatenate each UE's Dict observation (vector representation)
+        return {ue_id: np.concatenate([obs_dict[key] for key in keys]) for ue_id, obs_dict in obs.items()}
+
+    def _observation(self) -> Dict[int, Dict[str, np.ndarray]]:
         # fix ordering of BSs for observations
         stations = sorted(
             [bs for bs in self.stations.values()], key=lambda bs: bs.bs_id)
@@ -307,25 +319,27 @@ class MComEnv(gym.Env):
             # (1) observation of current connections
             # encodes UE's connections as one-hot vector
             connections = [bs for bs in stations if ue in self.connections[bs]]
-            onehot = np.zeros(self.NUM_STATIONS)
+            onehot = np.zeros(self.NUM_STATIONS, dtype=np.float16)
             onehot[[bs.bs_id for bs in connections]] = 1
 
             # (2) (normalized) SNR between UE to each BS
             snrs = [self.channel.snr(bs, ue) for bs in stations]
             max_snr = max(snrs)
-            snrs = np.asarray([snr / max_snr for snr in snrs])
+            snrs = np.asarray(
+                [snr / max_snr for snr in snrs], dtype=np.float16)
 
             # (3) include normalized utility of UE
             utility = self.utilities[ue] if ue in self.utilities else self.utility.scale(
                 self.utility.lower)
-            utility = np.asarray([utility])
+            utility = np.asarray([utility], dtype=np.float16)
 
             # (4) receive broadcast of average BS utilities of BSs in range
             # if broadcast is not received, set utility to lower bound
             idle = self.utility.scale(self.utility.lower)
             util_bcast = {bs: util if self.check_connectivity(
                 bs, ue) else idle for bs, util in bs_utilities.items()}
-            util_bcast = np.asarray([util_bcast[bs] for bs in stations])
+            util_bcast = np.asarray([util_bcast[bs]
+                                     for bs in stations], dtype=np.float16)
 
             # (5) receive broadcast of (normalized) connected UE count
             # if broadcast is not received, set UE connection count to zero
@@ -333,27 +347,27 @@ class MComEnv(gym.Env):
                 bs, ue) else 0.0 for bs in stations]
             total_conn = max(1, sum(num_connected))
             num_connected = np.asarray(
-                [count / total_conn for count in num_connected])
+                [count / total_conn for count in num_connected], dtype=np.float16)
 
-            # flatten UE's observation vector
-            return np.concatenate([onehot, snrs, utility, util_bcast, num_connected])
+            return {'connections': onehot, 'snrs': snrs, 'utility': utility, 'bcast': util_bcast, 'stations_connected': num_connected}
 
         def dummy_observations(ue):
             """Define dummy observation for non-active UEs."""
-            onehot = np.zeros(self.NUM_STATIONS)
-            snrs = np.zeros(self.NUM_STATIONS)
-            utility = np.asarray([self.utility.scale(self.utility.lower)])
+            onehot = np.zeros(self.NUM_STATIONS, dtype=np.float16)
+            snrs = np.zeros(self.NUM_STATIONS, dtype=np.float16)
+            utility = np.asarray(
+                [self.utility.scale(self.utility.lower)], dtype=np.float16)
             idle = self.utility.scale(self.utility.lower)
-            util_bcast = idle * np.ones(self.NUM_STATIONS)
-            num_connected = np.ones(self.NUM_STATIONS)
+            util_bcast = idle * np.ones(self.NUM_STATIONS, dtype=np.float16)
+            num_connected = np.ones(self.NUM_STATIONS, dtype=np.float16)
 
-            return np.concatenate([onehot, snrs, utility, util_bcast, num_connected])
+            return {'connections': onehot, 'snrs': snrs, 'utility': utility, 'bcast': util_bcast, 'stations_connected': num_connected}
 
         # define dummy observations for non-active UEs
-        obs = {ue.ue_id: dummy_observations(ue) for ue in self.users.values()}
+        idle_ues = set(self.users.values()) - set(self.active)
+        obs = {ue.ue_id: dummy_observations(ue) for ue in idle_ues}
         obs.update({ue.ue_id: ue_observations(ue) for ue in self.active})
-        # cast observation vector to np.float16
-        obs = {ue_id: np.asarray(ue_obs, dtype=np.float16) for ue_id, ue_obs in obs.items()} 
+
         return obs
 
     def render(self, mode="human") -> None:
@@ -384,7 +398,7 @@ class MComEnv(gym.Env):
 
             # calculate isoline contours for BSs' connectivity range
             self.conn_isolines = self.bs_isolines(0.0)
-            self.mb_isolines =  self.bs_isolines(1.0)
+            self.mb_isolines = self.bs_isolines(1.0)
 
         # clear surface
         self.window.fill("white")

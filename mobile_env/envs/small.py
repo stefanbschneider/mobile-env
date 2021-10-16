@@ -12,7 +12,7 @@ class MComSmall(MComEnv):
     def __init__(self):
         config = self.default_config()
 
-        stations = [(110, 130), (65, 80)]
+        stations = [(110, 130), (65, 80), (120, 30)]
         stations = [(x, y) for x, y in stations]
         stations = [BaseStation(bs_id, pos, **config['bs'])
                     for bs_id, pos in enumerate(stations)]
@@ -22,7 +22,7 @@ class MComSmall(MComEnv):
         ues = [UserEquipment(ue_id, pos, **config['ue'])
                for ue_id, pos in enumerate(ues)]
 
-        super().__init__(config, stations, ues)
+        super().__init__(stations, ues, config)
 
     @classmethod
     def default_config(cls):
