@@ -12,17 +12,16 @@ class MComSmall(MComEnv):
     def __init__(self):
         config = self.default_config()
 
-        stations = [(110, 130), (65, 80)]
+        stations = [(110, 130), (65, 80), (120, 30)]
         stations = [(x, y) for x, y in stations]
         stations = [BaseStation(bs_id, pos, **config['bs'])
                     for bs_id, pos in enumerate(stations)]
 
         ues = [(0, 5), (10, 20), (50, 20), (50, 70), (60, 30)]
-        ues = [(x, y) for x, y in ues]
         ues = [UserEquipment(ue_id, pos, **config['ue'])
                for ue_id, pos in enumerate(ues)]
 
-        super().__init__(config, stations, ues)
+        super().__init__(stations, ues, config)
 
     @classmethod
     def default_config(cls):
@@ -36,5 +35,5 @@ class MComSmall(MComEnv):
 
 gym.envs.register(
     id="mobile-small-v0",
-    entry_point="mobile_env.envs.small:MComSmall"
+    entry_point="mobile_env.scenarios.small:MComSmall"
 )
