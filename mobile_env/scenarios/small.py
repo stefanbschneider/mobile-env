@@ -18,7 +18,6 @@ class MComSmall(MComEnv):
                     for bs_id, pos in enumerate(stations)]
 
         ues = [(0, 5), (10, 20), (50, 20), (50, 70), (60, 30)]
-        ues = [(x, y) for x, y in ues]
         ues = [UserEquipment(ue_id, pos, **config['ue'])
                for ue_id, pos in enumerate(ues)]
 
@@ -36,5 +35,5 @@ class MComSmall(MComEnv):
 
 gym.envs.register(
     id="mobile-small-v0",
-    entry_point="mobile_env.envs.small:MComSmall"
+    entry_point="mobile_env.scenarios.small:MComSmall"
 )

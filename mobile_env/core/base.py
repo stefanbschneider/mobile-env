@@ -1,5 +1,6 @@
 import string
 import heapq
+from abc import abstractmethod
 from typing import List, Tuple, Dict, Set
 from collections import Counter, defaultdict
 
@@ -24,7 +25,7 @@ from mobile_env.core.movement import RandomWaypointMovement
 class MComEnv(gym.Env):
     IGNORE_ACTION = 0
 
-    def __init__(self, stations, ues, config=None) -> None:
+    def __init__(self, stations, users, config=None) -> None:
         super().__init__()
         if config is None:
             config = self.default_config
@@ -44,7 +45,7 @@ class MComEnv(gym.Env):
         # defines the simulation's overall basestations and UEs
         self.stations: Dict[int, BaseStation] = {
             bs.bs_id: bs for bs in stations}
-        self.users: Dict[int, UserEquipment] = {ue.ue_id: ue for ue in ues}
+        self.users: Dict[int, UserEquipment] = {ue.ue_id: ue for ue in users}
 
         assert len(self.stations) > 0, 'Cannot simulate without any BS.'
         assert len(self.users) > 0, 'Cannot simulate without any UE.'
@@ -61,13 +62,9 @@ class MComEnv(gym.Env):
         # stores each UE's (scaled) utility
         self.utilities: Dict[UserEquipment, float] = None
 
-        # define action space for multi-agent setting
-        self.action_space = gym.spaces.Dict({ue.ue_id: gym.spaces.Discrete(
-            self.NUM_STATIONS + 1) for ue in self.users.values()})
-
-        # define observation spaec for multi-agent setting
-        self.observation_space = gym.spaces.Dict({ue.ue_id: gym.spaces.Box(
-            low=-1, high=1, shape=(4 * self.NUM_STATIONS + 1,), dtype=np.float32) for ue in self.users.values()})
+        # define sizes of base feature set that can or cannot be observed
+        self.feature_sizes = {'connections': self.NUM_STATIONS, 'snrs': self.NUM_STATIONS,
+                              'utility': 1, 'bcast': self.NUM_STATIONS, 'stations_connected': self.NUM_STATIONS}
 
         # parameters for pygame visualization
         self.window = None
@@ -75,10 +72,8 @@ class MComEnv(gym.Env):
         self.conn_isolines = None
         self.mb_isolones = None
 
-        # track performance metrics for the simulation
+        # tracks performance metrics for the on-going simulation
         self.metrics = None
-
-        self.reset()
 
     @ classmethod
     def default_config(cls):
@@ -105,7 +100,7 @@ class MComEnv(gym.Env):
         # initially not all UEs request downlink connections (service)
         # sort active UEs by the time they exit (ascending exit time)
         self.active = sorted(
-            [ue for ue in self.users.values() if ue.stime <= 0], key=lambda ue: ue.extime)
+            [ue for ue in self.users.values() if ue.stime <= 0], key=lambda ue: ue.ue_id)
 
         # reset established downlink connections (default empty set)
         self.connections = defaultdict(set)
@@ -121,7 +116,7 @@ class MComEnv(gym.Env):
         # reset simulation metrics
         self.metrics = defaultdict(list)
 
-        return self.observations()
+        return self.observation()
 
     def apply_action(self, action: int, ue: UserEquipment) -> None:
         """Connect or disconnect `ue` to/from basestation `action`."""
@@ -210,8 +205,8 @@ class MComEnv(gym.Env):
             self.connections[bs] = ues - leaving
 
         # update list of active UEs & add those that begin to request service
-        self.active = [ue for ue in self.users.values() if ue.extime >
-                       self.time and ue.stime <= self.time]
+        self.active = sorted([ue for ue in self.users.values() if ue.extime >
+                              self.time and ue.stime <= self.time], key=lambda ue: ue.ue_id)
 
         # update the data rate of each (BS, UE) connection after movement
         for bs in self.stations.values():
@@ -219,12 +214,13 @@ class MComEnv(gym.Env):
             self.datarates.update(drates)
 
         # compute observations for next step
-        observation = self.observations()
+        observation = ()
 
         # update time and check whether episode is done
         self.time += 1
         if self.time >= self.EP_MAX_TIME:
             self.done = True
+            self.close()
 
         info = {}
         return observation, rewards, self.done, info
@@ -252,30 +248,6 @@ class MComEnv(gym.Env):
 
         return {(bs, ue): rate for ue, rate in zip(connected, rates)}
 
-    def info(self):
-        pass
-
-    def reward(self):
-        """Define each UEs' reward as its own utility aggregated with the average utility of nearby stations."""
-        # check what BS-UE connections are possible
-        connectable = self.available_connections()
-
-        # compute average utility of UEs for each BS; set to lower bound if no UEs are connected
-        bs_utilities = self.station_utilities()
-
-        def ue_utility(ue):
-            # utilities are broadcasted, i.e., aggregate utilities of BSs in range
-            ngbr_utility = sum(bs_utilities[bs] for bs in connectable[ue])
-
-            # calculate rewards as average weighted by the number of each BSs' connections
-            ngbr_counts = sum(len(self.connections[bs])
-                              for bs in connectable[ue])
-
-            return (ngbr_utility + self.utilities[ue]) / (ngbr_counts + 1)
-
-        rewards = {ue.ue_id: ue_utility(ue) for ue in self.active}
-        return rewards
-
     def station_utilities(self) -> Dict[BaseStation, UserEquipment]:
         """Compute average utility of UEs connected to the basestation."""
         # set utility of BS with no active connections (idle BS) to (scaled) lower utility bound
@@ -297,16 +269,7 @@ class MComEnv(gym.Env):
 
         return isolines
 
-    def observations(self) -> Dict[int, np.ndarray]:
-        """Flatten (internal) observation vector to vector shape per UE."""
-        obs = self._observation()
-        # get list of keys used to represent each UE
-        keys = next(iter(obs.values())).keys()
-
-        # concatenate each UE's Dict observation (vector representation)
-        return {ue_id: np.concatenate([obs_dict[key] for key in keys]) for ue_id, obs_dict in obs.items()}
-
-    def _observation(self) -> Dict[int, Dict[str, np.ndarray]]:
+    def features(self) -> Dict[int, Dict[str, np.ndarray]]:
         # fix ordering of BSs for observations
         stations = sorted(
             [bs for bs in self.stations.values()], key=lambda bs: bs.bs_id)
@@ -314,7 +277,7 @@ class MComEnv(gym.Env):
         # compute average utility of each basestation's connections
         bs_utilities = self.station_utilities()
 
-        def ue_observations(ue):
+        def ue_features(ue):
             """Define local observation vector for UEs."""
             # (1) observation of current connections
             # encodes UE's connections as one-hot vector
@@ -351,7 +314,7 @@ class MComEnv(gym.Env):
 
             return {'connections': onehot, 'snrs': snrs, 'utility': utility, 'bcast': util_bcast, 'stations_connected': num_connected}
 
-        def dummy_observations(ue):
+        def dummy_features(ue):
             """Define dummy observation for non-active UEs."""
             onehot = np.zeros(self.NUM_STATIONS, dtype=np.float16)
             snrs = np.zeros(self.NUM_STATIONS, dtype=np.float16)
@@ -365,8 +328,8 @@ class MComEnv(gym.Env):
 
         # define dummy observations for non-active UEs
         idle_ues = set(self.users.values()) - set(self.active)
-        obs = {ue.ue_id: dummy_observations(ue) for ue in idle_ues}
-        obs.update({ue.ue_id: ue_observations(ue) for ue in self.active})
+        obs = {ue.ue_id: dummy_features(ue) for ue in idle_ues}
+        obs.update({ue.ue_id: ue_features(ue) for ue in self.active})
 
         return obs
 
@@ -403,11 +366,14 @@ class MComEnv(gym.Env):
         # clear surface
         self.window.fill("white")
 
-        # render simulation, metrics and score
-        self.render_simulation(sim_ax)
-        self.render_dashboard(dash_ax)
-        self.render_mean_utility(qoe_ax)
-        self.render_ues_connected(conn_ax)
+        # render simulation, metrics and score if step() on core simulation was called
+        # i.e. this prevents rendering in the sequential environment before
+        # the first round-robin of actions is finalized
+        if self.time > 0:
+            self.render_simulation(sim_ax)
+            self.render_dashboard(dash_ax)
+            self.render_mean_utility(qoe_ax)
+            self.render_ues_connected(conn_ax)
 
         # align plots' y-axis labels
         fig.align_ylabels((qoe_ax, conn_ax))
@@ -529,6 +495,18 @@ class MComEnv(gym.Env):
         ax.set_ylim([0.0, len(self.users)])
 
     def close(self) -> None:
+        """Closes the environment and terminates its visualization."""
         self.done = True
         pygame.quit()
         self.window = None
+
+    def info(self):
+        return self.metrics.copy()
+
+    def reward(self):
+        """The reward must be defined by the concrete (multi-agent or central) setting."""
+        pass
+
+    def observation(self):
+        """The observations must be defined by the concrete (multi-agent or central) setting."""
+        pass
