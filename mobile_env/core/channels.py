@@ -107,12 +107,6 @@ class Channel:
             return np.min((rgt_x1, lwr_x1, width)), np.max((rgt_y1, lwr_y1, 0.0))
 
 
-class PathLoss(Channel):
-    @classmethod
-    def power_loss(cls, bs, ue):
-        pass
-
-
 class OkumuraHata(Channel):
     @classmethod
     def power_loss(cls, bs, ue):

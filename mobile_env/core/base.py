@@ -98,7 +98,6 @@ class MComEnv(gym.Env):
         self.done = False
 
         # initially not all UEs request downlink connections (service)
-        # sort active UEs by the time they exit (ascending exit time)
         self.active = sorted(
             [ue for ue in self.users.values() if ue.stime <= 0], key=lambda ue: ue.ue_id)
 
@@ -188,7 +187,7 @@ class MComEnv(gym.Env):
                                ) if self.utilities else self.utility.lower
         self.metrics['mean_utility'].append(mean_utility)
 
-        #  scale utilities to range [-1, 1] before computing rewards
+        # scale utilities to range [-1, 1] before computing rewards
         self.utilities = {ue: self.utility.scale(
             utility) for ue, utility in self.utilities.items()}
 

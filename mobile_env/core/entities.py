@@ -13,10 +13,6 @@ class BaseStation:
         self.tx_power = tx  # in dBm
         self.height = height    # in m
 
-        # visualization purpose:
-        # TODO: compute connection range
-        # TODO: compute 1MB range
-
     @property
     def point(self):
         return Point(int(self.x), int(self.y))

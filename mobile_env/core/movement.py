@@ -1,6 +1,5 @@
 import random
 from typing import Dict, Tuple
-from abc import ABC, abstractmethod
 
 import numpy as np
 from shapely.geometry import Point
@@ -8,14 +7,7 @@ from shapely.geometry import Point
 from mobile_env.core.entities import UserEquipment
 
 
-class Movement(ABC):
-    @staticmethod
-    @abstractmethod
-    def move(ue):
-        pass
-
-
-class RandomWaypointMovement():
+class RandomWaypointMovement:
     def __init__(self, width, height):
         self.width, self.height = width, height
         self.waypoints: Dict[UserEquipment, Tuple[float, float]] = {}

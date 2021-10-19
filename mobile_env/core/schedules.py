@@ -3,10 +3,6 @@ from typing import List
 from mobile_env.core.entities import BaseStation
 
 
-class Schedule:
-    pass
-
-
 class ResourceFair:
     @classmethod
     def share(cls, bs: BaseStation, rates: List[float]):
