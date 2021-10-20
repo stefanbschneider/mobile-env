@@ -2,15 +2,16 @@ from typing import Dict
 
 import gym
 
-from mobile_env.core.base import MComEnv
+from mobile_env.core.base import MComCore
 from mobile_env.core.channels import OkumuraHata
 from mobile_env.core.schedules import ResourceFair
 from mobile_env.core.entities import BaseStation, UserEquipment
 
 
-class MComSmall(MComEnv):
-    def __init__(self):
-        config = self.default_config()
+class MComSmall(MComCore):
+    def __init__(self, config={}):
+        # set unspecified parameters to default configuration
+        config = {**self.default_config(), **config}
 
         stations = [(110, 130), (65, 80), (120, 30)]
         stations = [(x, y) for x, y in stations]
@@ -31,9 +32,3 @@ class MComSmall(MComEnv):
         config.update({'ue': {'stime': 0, 'extime': config['EP_MAX_TIME'], 'velocity': 1.5,
                               'snr_tr': 2e-8, 'noise': 1e-9, 'height': 1.5}})
         return config
-
-
-gym.envs.register(
-    id="mobile-small-v0",
-    entry_point="mobile_env.scenarios.small:MComSmall"
-)
