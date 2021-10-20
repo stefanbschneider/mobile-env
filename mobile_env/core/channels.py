@@ -9,6 +9,11 @@ EPSILON = 1e-16
 
 
 class Channel:
+    def __init__(self, **kwargs):
+        pass
+
+    def reset(self) -> None:
+        pass
 
     @classmethod
     @abstractmethod

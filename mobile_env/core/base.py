@@ -14,6 +14,7 @@ import matplotlib.backends.backend_agg as agg
 from matplotlib import cm
 from pygame import Surface
 
+from mobile_env.handlers.central import MComCentralHandler
 from mobile_env.core.util import BS_SYMBOL
 from mobile_env.core.channels import OkumuraHata
 from mobile_env.core.schedules import ResourceFair
@@ -22,13 +23,14 @@ from mobile_env.core.entities import BaseStation, UserEquipment
 from mobile_env.core.movement import RandomWaypointMovement
 
 
-class MComEnv(gym.Env):
+class MComCore(gym.Env):
     IGNORE_ACTION = 0
 
-    def __init__(self, stations, users, config=None) -> None:
+    def __init__(self, stations, users, config={}):
         super().__init__()
-        if config is None:
-            config = self.default_config
+        # set unspecified parameters to default configuration
+        config = {**self.default_config(), **config}
+        config = self.seeding(config)
 
         self.width, self.height = config['width'], config['height']
         # set up channel, movement, etc. according to specified parameters
@@ -40,18 +42,26 @@ class MComEnv(gym.Env):
         # define parameters that track the simulation's progress
         self.EP_MAX_TIME = config['EP_MAX_TIME']
         self.time = None
-        self.done = None
+        self.closed = False
 
         # defines the simulation's overall basestations and UEs
         self.stations: Dict[int, BaseStation] = {
             bs.bs_id: bs for bs in stations}
         self.users: Dict[int, UserEquipment] = {ue.ue_id: ue for ue in users}
-
-        assert len(self.stations) > 0, 'Cannot simulate without any BS.'
-        assert len(self.users) > 0, 'Cannot simulate without any UE.'
-
         self.NUM_STATIONS = len(self.stations)
         self.NUM_USERS = len(self.users)
+
+        # define sizes of base feature set that can or cannot be observed
+        self.feature_sizes = {'connections': self.NUM_STATIONS, 'snrs': self.NUM_STATIONS,
+                              'utility': 1, 'bcast': self.NUM_STATIONS, 'stations_connected': self.NUM_STATIONS}
+
+        # set object that handles calls to action(), reward() & observation()
+        # set action & observation space according to handler
+        self.handler = config['handler']
+        # check if handler is applicable to mobile scenario
+        self.handler.check(self)
+        self.action_space = self.handler.action_space(self)
+        self.observation_space = self.handler.observation_space(self)
 
         # stores what UEs are currently active, i.e., request service
         self.active: List[UserEquipment] = None
@@ -61,10 +71,6 @@ class MComEnv(gym.Env):
         self.datarates: Dict[Tuple[BaseStation, UserEquipment], float] = None
         # stores each UE's (scaled) utility
         self.utilities: Dict[UserEquipment, float] = None
-
-        # define sizes of base feature set that can or cannot be observed
-        self.feature_sizes = {'connections': self.NUM_STATIONS, 'snrs': self.NUM_STATIONS,
-                              'utility': 1, 'bcast': self.NUM_STATIONS, 'stations_connected': self.NUM_STATIONS}
 
         # parameters for pygame visualization
         self.window = None
@@ -79,12 +85,12 @@ class MComEnv(gym.Env):
     def default_config(cls):
         """Set default configuration of environment dynamics."""
         # set up configuration of environment
-        config = {'width': 200, 'height': 200, 'channel': OkumuraHata, 'scheduler': ResourceFair,
-                  'movement': RandomWaypointMovement, 'utility': BoundedLogUtility}
+        width, height = 200, 200
+        config = {'width': width, 'height': height, 'seed': 0, 'channel': OkumuraHata, 'scheduler': ResourceFair,
+                  'movement': RandomWaypointMovement, 'utility': BoundedLogUtility, 'Handler': MComCentralHandler}
         config.update({'channel_params': {}})
         config.update({'scheduler_params': {}})
-        config.update(
-            {'movement_params': {'width': config['width'], 'height': config['height']}})
+        config.update({'movement_params': {'width': width, 'height': height}})
         config.update(
             {'utility_params': {'lower': -20, 'upper': 20, 'coeffs': (10, 0, 10)}})
 
@@ -92,10 +98,19 @@ class MComEnv(gym.Env):
         config.update({'EP_MAX_TIME': 1000})
         return config
 
+    @classmethod
+    def seeding(cls, config):
+        seed = config['seed']
+        keys = ['channel_params', 'scheduler_params',
+                'movement_params', 'utility_params']
+        for num, key in enumerate(keys):
+            config[key]['seed'] = seed + num
+
+        return config
+
     def reset(self):
         """Reset environment to starting state."""
         self.time = 0.0
-        self.done = False
 
         # initially not all UEs request downlink connections (service)
         self.active = sorted(
@@ -108,14 +123,25 @@ class MComEnv(gym.Env):
         # reset UEs' utilities
         self.utilities = {}
 
+        # reset state kept by channel, scheduler, movement and utility handlers
+        self.channel.reset()
+        self.scheduler.reset()
+        self.movement.reset()
+        self.utility.reset()
+
         # reset positions of UEs to their initial position
         for ue in self.users.values():
-            ue.x, ue.y = ue.init_pos
+            ue.x, ue.y = self.movement.initial_position(ue)
+
+        # TODO: generate new arrival and exit times for UEs
+
+        # set time of last UE's departure
+        self.max_departure = max(ue.extime for ue in self.users.values())
 
         # reset simulation metrics
         self.metrics = defaultdict(list)
 
-        return self.observation()
+        return self.handler.observation(self)
 
     def apply_action(self, action: int, ue: UserEquipment) -> None:
         """Connect or disconnect `ue` to/from basestation `action`."""
@@ -152,6 +178,9 @@ class MComEnv(gym.Env):
 
     def step(self, actions: Dict[int, int]):
         assert not self.done, 'step() called on already terminated episode'
+
+        # apply handler to transform actions from MA / central setting to exepected shape
+        actions = self.handler.action(self, actions)
 
         # release established connections that are out-of-range (due to movement)
         self.update_connections()
@@ -192,7 +221,8 @@ class MComEnv(gym.Env):
             utility) for ue, utility in self.utilities.items()}
 
         # compute rewards from utility for each UE
-        rewards = self.reward()
+        # method is defined by handler according to strategy pattern
+        rewards = self.handler.reward(self)
 
         # move user equipments around; update positions of UEs
         for ue in self.active:
@@ -212,17 +242,28 @@ class MComEnv(gym.Env):
             drates = self.station_allocation(bs)
             self.datarates.update(drates)
 
-        # compute observations for next step
-        observation = ()
-
-        # update time and check whether episode is done
+        # update internal time of environment
         self.time += 1
-        if self.time >= self.EP_MAX_TIME:
-            self.done = True
+        # check whether episode is done & close the environment
+        if self.done and self.window:
             self.close()
 
-        info = {}
+        # do not invoke next step on policies before at least one UE is active
+        if not self.active and not self.done:
+            return self.step({})
+
+        # compute observations for next step and information
+        # methods are defined by handler according to strategy pattern
+        # NOTE: compute observations after proceeding in time (may skip time steps)
+        observation = self.handler.observation(self)
+        info = self.handler.info(self)
+
         return observation, rewards, self.done, info
+
+    @property
+    def done(self):
+        """Episode is done after max. time steps or once last UE departed."""
+        return self.time >= min(self.EP_MAX_TIME, self.max_departure)
 
     def macro_datarates(self, datarates):
         """Compute aggregated UE data rates given all its simultaneous connections."""
@@ -281,19 +322,19 @@ class MComEnv(gym.Env):
             # (1) observation of current connections
             # encodes UE's connections as one-hot vector
             connections = [bs for bs in stations if ue in self.connections[bs]]
-            onehot = np.zeros(self.NUM_STATIONS, dtype=np.float16)
+            onehot = np.zeros(self.NUM_STATIONS, dtype=np.float32)
             onehot[[bs.bs_id for bs in connections]] = 1
 
             # (2) (normalized) SNR between UE to each BS
             snrs = [self.channel.snr(bs, ue) for bs in stations]
             max_snr = max(snrs)
             snrs = np.asarray(
-                [snr / max_snr for snr in snrs], dtype=np.float16)
+                [snr / max_snr for snr in snrs], dtype=np.float32)
 
             # (3) include normalized utility of UE
             utility = self.utilities[ue] if ue in self.utilities else self.utility.scale(
                 self.utility.lower)
-            utility = np.asarray([utility], dtype=np.float16)
+            utility = np.asarray([utility], dtype=np.float32)
 
             # (4) receive broadcast of average BS utilities of BSs in range
             # if broadcast is not received, set utility to lower bound
@@ -301,7 +342,7 @@ class MComEnv(gym.Env):
             util_bcast = {bs: util if self.check_connectivity(
                 bs, ue) else idle for bs, util in bs_utilities.items()}
             util_bcast = np.asarray([util_bcast[bs]
-                                     for bs in stations], dtype=np.float16)
+                                     for bs in stations], dtype=np.float32)
 
             # (5) receive broadcast of (normalized) connected UE count
             # if broadcast is not received, set UE connection count to zero
@@ -309,19 +350,19 @@ class MComEnv(gym.Env):
                 bs, ue) else 0.0 for bs in stations]
             total_conn = max(1, sum(num_connected))
             num_connected = np.asarray(
-                [count / total_conn for count in num_connected], dtype=np.float16)
+                [count / total_conn for count in num_connected], dtype=np.float32)
 
             return {'connections': onehot, 'snrs': snrs, 'utility': utility, 'bcast': util_bcast, 'stations_connected': num_connected}
 
         def dummy_features(ue):
             """Define dummy observation for non-active UEs."""
-            onehot = np.zeros(self.NUM_STATIONS, dtype=np.float16)
-            snrs = np.zeros(self.NUM_STATIONS, dtype=np.float16)
+            onehot = np.zeros(self.NUM_STATIONS, dtype=np.float32)
+            snrs = np.zeros(self.NUM_STATIONS, dtype=np.float32)
             utility = np.asarray(
-                [self.utility.scale(self.utility.lower)], dtype=np.float16)
+                [self.utility.scale(self.utility.lower)], dtype=np.float32)
             idle = self.utility.scale(self.utility.lower)
-            util_bcast = idle * np.ones(self.NUM_STATIONS, dtype=np.float16)
-            num_connected = np.ones(self.NUM_STATIONS, dtype=np.float16)
+            util_bcast = idle * np.ones(self.NUM_STATIONS, dtype=np.float32)
+            num_connected = np.ones(self.NUM_STATIONS, dtype=np.float32)
 
             return {'connections': onehot, 'snrs': snrs, 'utility': utility, 'bcast': util_bcast, 'stations_connected': num_connected}
 
@@ -333,6 +374,9 @@ class MComEnv(gym.Env):
         return obs
 
     def render(self, mode="human") -> None:
+        if self.closed:
+            return
+
         # set up matplotlib figure & axis configuration
         fig = plt.figure(figsize=(7.5, 3.7))
         gs = fig.add_gridspec(ncols=2, nrows=3, width_ratios=(3, 2), height_ratios=(
@@ -495,17 +539,6 @@ class MComEnv(gym.Env):
 
     def close(self) -> None:
         """Closes the environment and terminates its visualization."""
-        self.done = True
         pygame.quit()
         self.window = None
-
-    def info(self):
-        return self.metrics.copy()
-
-    def reward(self):
-        """The reward must be defined by the concrete (multi-agent or central) setting."""
-        pass
-
-    def observation(self):
-        """The observations must be defined by the concrete (multi-agent or central) setting."""
-        pass
+        self.closed = True
