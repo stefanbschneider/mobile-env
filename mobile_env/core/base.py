@@ -86,16 +86,18 @@ class MComCore(gym.Env):
         """Set default configuration of environment dynamics."""
         # set up configuration of environment
         width, height = 200, 200
-        config = {'width': width, 'height': height, 'seed': 0, 'channel': OkumuraHata, 'scheduler': ResourceFair,
-                  'movement': RandomWaypointMovement, 'utility': BoundedLogUtility, 'Handler': MComCentralHandler}
+        config = {'width': width, 'height': height, 'seed': 0, 'EP_MAX_TIME': 1000, 'channel': OkumuraHata,
+                  'scheduler': ResourceFair, 'movement': RandomWaypointMovement, 'utility': BoundedLogUtility,
+                  'Handler': MComCentralHandler}
+
         config.update({'channel_params': {}})
         config.update({'scheduler_params': {}})
-        config.update({'movement_params': {'width': width, 'height': height}})
-        config.update(
-            {'utility_params': {'lower': -20, 'upper': 20, 'coeffs': (10, 0, 10)}})
+        mparams = {'width': width, 'height': height,
+                   'reset_seed_on': 'never'}
+        config.update({'movement_params': mparams})
+        uparams = {'lower': -20, 'upper': 20, 'coeffs': (10, 0, 10)}
+        config.update({'utility_params': uparams})
 
-        # set up configuration of evaluation
-        config.update({'EP_MAX_TIME': 1000})
         return config
 
     @classmethod
