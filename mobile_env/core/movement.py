@@ -22,29 +22,23 @@ class Movement:
 
 
 class RandomWaypointMovement(Movement):
-    def __init__(self, width: float, height: float, seed: int, **kwargs: Dict):
-        # set unspecified parameters to default configuration
-        self.config = {**self.default_config(), **kwargs}
+    def __init__(self, width: float, height: float, seed: int, reset_seed_on: str, **kwargs):
         self.width, self.height = width, height
+        self.seed = seed
+        self.reset_seed_on = reset_seed_on
 
         # track waypoints and initial positions per UE
         self.waypoints: Dict[UserEquipment, Tuple[float, float]] = None
         self.initial: Dict[UserEquipment, Tuple[float, float]] = None
-
-        self.seed = seed
+        # seed random movement and random initial positions
         self.rng = np.random.default_rng(seed)
-
-    @classmethod
-    def default_config(cls):
-        config = {'reset_seed_on': 'episode_end'}
-        return config
 
     def reset(self) -> None:
         """Reset state of movement object after episode ends."""
         # case: movement and initial positions remain unchanged between episodes
-        if self.config['reset_seed_on'] == 'episode_end':
+        if self.reset_seed_on == 'episode_end':
             self.rng = np.random.default_rng(self.seed)
-        
+
         # reset UE waypoints and initial positions
         self.waypoints = {}
         self.initial = {}
@@ -74,10 +68,10 @@ class RandomWaypointMovement(Movement):
 
     def initial_position(self, ue: UserEquipment) -> Tuple[float, float]:
         """Return initial position of UE at the beginning of the episode."""
-        if ue not in self.initial: 
+        if ue not in self.initial:
             x = self.rng.uniform(0, self.width)
             y = self.rng.uniform(0, self.height)
             self.initial[ue] = (x, y)
-        
+
         x, y = self.initial[ue]
         return x, y
