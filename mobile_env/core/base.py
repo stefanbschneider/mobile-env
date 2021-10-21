@@ -10,8 +10,9 @@ import matplotlib
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patheffects as pe
-from matplotlib import cm
 from pygame import Surface
+from matplotlib import cm
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 
 from mobile_env.handlers.central import MComCentralHandler
 from mobile_env.core.util import BS_SYMBOL
@@ -406,9 +407,7 @@ class MComCore(gym.Env):
             self.render_ues_connected(conn_ax)
 
         # align plots' y-axis labels
-        fig.align_ylabels((qoe_ax, conn_ax))
-        
-        from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+        fig.align_ylabels((qoe_ax, conn_ax))        
         canvas = FigureCanvas(fig)
         canvas.draw()
         
