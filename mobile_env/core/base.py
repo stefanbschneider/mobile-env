@@ -10,7 +10,6 @@ import matplotlib
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patheffects as pe
-import matplotlib.backends.backend_agg as agg
 from matplotlib import cm
 from pygame import Surface
 
@@ -76,7 +75,7 @@ class MComCore(gym.Env):
         self.window = None
         self.clock = None
         self.conn_isolines = None
-        self.mb_isolones = None
+        self.mb_isolines = None
 
         # tracks performance metrics for the on-going simulation
         self.metrics = None
@@ -376,8 +375,16 @@ class MComCore(gym.Env):
         return obs
 
     def render(self, mode="human") -> None:
+        # do not continue rendering once environment has been closed
         if self.closed:
             return
+        
+        # calculate isoline contours for BSs' connectivity range
+        if self.conn_isolines is None:
+            self.conn_isolines = self.bs_isolines(0.0)
+        # calculate isoline contours for BSs' 1 MB/s range
+        if self.mb_isolines is None:    
+            self.mb_isolines = self.bs_isolines(1.0)
 
         # set up matplotlib figure & axis configuration
         fig = plt.figure(figsize=(7.5, 3.7))
@@ -388,29 +395,7 @@ class MComCore(gym.Env):
         dash_ax = fig.add_subplot(gs[0, 1])
         conn_ax = fig.add_subplot(gs[2, 1], )
         qoe_ax = fig.add_subplot(gs[1, 1])
-
-        # set up pygame window to display matplotlib figure
-        if self.window is None:
-            pygame.init()
-            self.clock = pygame.time.Clock()
-
-            # set window size to figure's size in pixels
-            window_size = tuple(map(int, fig.get_size_inches() * fig.dpi))
-            self.window = pygame.display.set_mode(window_size)
-
-            # remove pygame icon from window; set icon to empty surface
-            pygame.display.set_icon(Surface((0, 0)))
-
-            # set window's caption and background color
-            pygame.display.set_caption("MComEnv")
-
-            # calculate isoline contours for BSs' connectivity range
-            self.conn_isolines = self.bs_isolines(0.0)
-            self.mb_isolines = self.bs_isolines(1.0)
-
-        # clear surface
-        self.window.fill("white")
-
+            
         # render simulation, metrics and score if step() on core simulation was called
         # i.e. this prevents rendering in the sequential environment before
         # the first round-robin of actions is finalized
@@ -422,26 +407,59 @@ class MComCore(gym.Env):
 
         # align plots' y-axis labels
         fig.align_ylabels((qoe_ax, conn_ax))
-
-        # render matplotlib plot as RGB frame on canvas
-        canvas = agg.FigureCanvasAgg(fig)
+        
+        from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+        canvas = FigureCanvas(fig)
         canvas.draw()
-        data = canvas.buffer_rgba()
-        size = canvas.get_width_height()
-
-        # plot matplotlib's RGBA frame on the pygame surface
-        screen = pygame.display.get_surface()
-        plot = pygame.image.frombuffer(data, size, "RGBA")
-        screen.blit(plot, (0, 0))
+        
+        # close figure (otherwise opens multiple figures on consecutive render() calls)
         plt.close()
+            
+        if mode == 'rgb_array':
+            # render RGB image for e.g. video recording
+            data = np.frombuffer(canvas.tostring_rgb(), dtype=np.uint8)
+            # reshape image from 1d array to 2d array
+            return data.reshape(canvas.get_width_height()[::-1] + (3,))
+            
+        elif mode == 'human':
+            # render RGBA image on pygame surface
+            data = canvas.buffer_rgba()
+            size = canvas.get_width_height()
+            
+            # set up pygame window to display matplotlib figure
+            if self.window is None:
+                pygame.init()
+                self.clock = pygame.time.Clock()
 
-        # update the full display surface to the window
-        pygame.display.flip()
+                # set window size to figure's size in pixels
+                window_size = tuple(map(int, fig.get_size_inches() * fig.dpi))
+                self.window = pygame.display.set_mode(window_size)
 
-        # handle pygame events (such as closing the window)
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                self.close()
+                # remove pygame icon from window; set icon to empty surface
+                pygame.display.set_icon(Surface((0, 0)))
+
+                # set window's caption and background color
+                pygame.display.set_caption("MComEnv")
+
+            # clear surface
+            self.window.fill("white")
+
+            # plot matplotlib's RGBA frame on the pygame surface
+            screen = pygame.display.get_surface()
+            plot = pygame.image.frombuffer(data, size, "RGBA")
+            screen.blit(plot, (0, 0))
+
+            # update the full display surface to the window
+            pygame.display.flip()
+
+            # handle pygame events (such as closing the window)
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.close()
+                    
+        else:
+            raise ValueError('Invalid rendering mode.')
+        
 
     def render_simulation(self, ax) -> None:
         colormap = cm.get_cmap('RdYlGn')
