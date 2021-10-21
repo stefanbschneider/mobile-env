@@ -9,11 +9,12 @@ with open(os.path.join(this_directory, 'README.md'), encoding='utf-8') as f:
 
 
 requirements = [
-
-]
-
-eval_requirements = [
-
+    'shapely>=1.7.0',
+    'matplotlib>=3.4.3',
+    'numpy>=1.20',
+    'gym>=0.17.1',
+    'pygame>=2.0'
+    'svgpath2mpl>=1.0.0'
 ]
 
 setup(
@@ -26,13 +27,8 @@ setup(
     url='https://github.com/stefanbschneider/mobile-env',
     packages=find_packages(),
     python_requires=">=3.8.*",
-    install_requires=requirements + eval_requirements,
+    install_requires=requirements,
     zip_safe=False,
-    # entry_points={
-        # 'console_scripts': [
-            # 'deepcomp=deepcomp.main:main'
-        # ]
-    # },
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
