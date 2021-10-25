@@ -1,9 +1,7 @@
-import random
 from typing import Dict, Tuple
 from abc import abstractmethod
 
 import numpy as np
-from shapely.geometry import Point
 
 from mobile_env.core.entities import UserEquipment
 
@@ -22,7 +20,8 @@ class Movement:
 
 
 class RandomWaypointMovement(Movement):
-    def __init__(self, width: float, height: float, seed: int, reset_seed_on: str, **kwargs):
+    def __init__(self, width: float, height: float, seed: int,
+                 reset_seed_on: str, **kwargs):
         self.width, self.height = width, height
         self.seed = seed
         self.reset_seed_on = reset_seed_on
@@ -35,8 +34,8 @@ class RandomWaypointMovement(Movement):
 
     def reset(self) -> None:
         """Reset state of movement object after episode ends."""
-        # case: movement and initial positions remain unchanged between episodes
-        if self.reset_seed_on == 'episode_end':
+        # case: movement patterns remain unchanged between episodes
+        if self.reset_seed_on == "episode_end":
             self.rng = np.random.default_rng(self.seed)
 
         # reset UE waypoints and initial positions
@@ -54,13 +53,13 @@ class RandomWaypointMovement(Movement):
         position = np.array([ue.x, ue.y])
         waypoint = np.array(self.waypoints[ue])
 
-        # if already close enough to waypoint, move directly onto waypoint (not past it)
+        # if already close enough to waypoint, move directly onto waypoint
         if np.linalg.norm(position - waypoint) <= ue.velocity:
             # remove waypoint from dict after it has been reached
             waypoint = self.waypoints.pop(ue)
             return waypoint
 
-        # else move by self.velocity towards waypoint: https://math.stackexchange.com/a/175906/234077
+        # else move by self.velocity towards waypoint
         v = waypoint - position
         position = position + ue.velocity * v / np.linalg.norm(v)
 
