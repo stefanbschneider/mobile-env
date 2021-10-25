@@ -8,8 +8,8 @@ Subpackages
    :maxdepth: 4
 
    mobile_env.core
-   mobile_env.envs
-   mobile_env.wrappers
+   mobile_env.handlers
+   mobile_env.scenarios
 
 Module contents
 ---------------
