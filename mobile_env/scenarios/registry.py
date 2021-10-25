@@ -8,15 +8,14 @@ from mobile_env.handlers.multi_agent import MComMAHandler
 from mobile_env.handlers.central import MComCentralHandler
 
 
-scenarios = {'small': MComSmall, 'large': MComLarge}
-handlers = {'ma': MComMAHandler, 'central': MComCentralHandler}
-
+scenarios = {"small": MComSmall, "large": MComLarge}
+handlers = {"ma": MComMAHandler, "central": MComCentralHandler}
 
 for scenario, handler in itertools.product(scenarios, handlers):
     env_name = scenarios[scenario].__name__
-    config = {'handler': handlers[handler]}
+    config = {"handler": handlers[handler]}
     gym.envs.register(
-        id=f'mobile-{scenario}-{handler}-v0',
-        entry_point=f'mobile_env.scenarios.{scenario}:{env_name}',
-        kwargs={'config': config}
+        id=f"mobile-{scenario}-{handler}-v0",
+        entry_point=f"mobile_env.scenarios.{scenario}:{env_name}",
+        kwargs={"config": config},
     )

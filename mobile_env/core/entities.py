@@ -4,14 +4,22 @@ from shapely.geometry import Point
 
 
 class BaseStation:
-    def __init__(self, bs_id: int, pos: Tuple[float, float], bw: float, freq: float, tx: float, height: float):
+    def __init__(
+        self,
+        bs_id: int,
+        pos: Tuple[float, float],
+        bw: float,
+        freq: float,
+        tx: float,
+        height: float,
+    ):
         # BS ID is final, i.e., cannot be set to another value & must be unique
         self.bs_id: Final = bs_id
         self.x, self.y = pos
-        self.bw = bw   # in Hz
-        self.frequency = freq    # in MHz
+        self.bw = bw  # in Hz
+        self.frequency = freq  # in MHz
         self.tx_power = tx  # in dBm
-        self.height = height    # in m
+        self.height = height  # in m
 
     @property
     def point(self):
@@ -22,7 +30,17 @@ class BaseStation:
 
 
 class UserEquipment:
-    def __init__(self, ue_id: int, init_pos: Tuple[float, float], stime: int, extime: int, velocity: float, snr_tr: float, noise: float, height: float):
+    def __init__(
+        self,
+        ue_id: int,
+        init_pos: Tuple[float, float],
+        stime: int,
+        extime: int,
+        velocity: float,
+        snr_tr: float,
+        noise: float,
+        height: float,
+    ):
         # UE ID is final, i.e., cannot be set to another value & must be unique
         self.ue_id: Final = ue_id
         self.init_pos: Tuple[float, float] = init_pos
@@ -41,5 +59,3 @@ class UserEquipment:
 
     def __str__(self):
         return f"UE: {self.ue_id}"
-
-        
