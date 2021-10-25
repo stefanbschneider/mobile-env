@@ -8,8 +8,8 @@ authors = [
     ]
 license = "MIT"
 repository = "https://github.com/stefanbschneider/mobile-env"
-homepage = ""
-documentation = ""
+homepage = "https://github.com/stefanbschneider/mobile-env"
+documentation = "https://mobile-env.readthedocs.io/en/latest/?badge=latest"
 
 
 [tool.poetry.dependencies]
