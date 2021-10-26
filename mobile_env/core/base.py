@@ -13,6 +13,7 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 
 from mobile_env.handlers.central import MComCentralHandler
 from mobile_env.core.util import BS_SYMBOL
+from mobile_env.core.arrival import NoDeparture
 from mobile_env.core.channels import OkumuraHata
 from mobile_env.core.schedules import ResourceFair
 from mobile_env.core.utilities import BoundedLogUtility
@@ -21,7 +22,7 @@ from mobile_env.core.movement import RandomWaypointMovement
 
 
 class MComCore(gym.Env):
-    IGNORE_ACTION = 0
+    NOOP_ACTION = 0
 
     def __init__(self, stations, users, config={}):
         super().__init__()
@@ -30,7 +31,10 @@ class MComCore(gym.Env):
         config = self.seeding(config)
 
         self.width, self.height = config["width"], config["height"]
-        # set up channel, movement, etc. according to specified parameters
+        self.seed = config["seed"]
+        self.reset_rng_episode = config["reset_rng_episode"]
+        # set up arrival pattern, channel, movement, etc.
+        self.arrival = config["arrival"](**config["arrival_params"])
         self.channel = config["channel"](**config["channel_params"])
         self.scheduler = config["scheduler"](**config["scheduler_params"])
         self.movement = config["movement"](**config["movement_params"])
@@ -59,8 +63,6 @@ class MComCore(gym.Env):
         # set object that handles calls to action(), reward() & observation()
         # set action & observation space according to handler
         self.handler = config["handler"]
-        # check if handler is applicable to mobile scenario
-        self.handler.check(self)
         self.action_space = self.handler.action_space(self)
         self.observation_space = self.handler.observation_space(self)
 
@@ -72,6 +74,8 @@ class MComCore(gym.Env):
         self.datarates: Dict[Tuple[BaseStation, UserEquipment], float] = None
         # stores each UE's (scaled) utility
         self.utilities: Dict[UserEquipment, float] = None
+        # define RNG (as of now: unused)
+        self.rng = None
 
         # parameters for pygame visualization
         self.window = None
@@ -87,11 +91,16 @@ class MComCore(gym.Env):
         """Set default configuration of environment dynamics."""
         # set up configuration of environment
         width, height = 200, 200
+        ep_time = 250
         config = {
+            # environment parameters:
             "width": width,
             "height": height,
+            "EP_MAX_TIME": ep_time,
             "seed": 0,
-            "EP_MAX_TIME": 1000,
+            "reset_rng_episode": False,
+            # used simulation models:
+            "arrival": NoDeparture,
             "channel": OkumuraHata,
             "scheduler": ResourceFair,
             "movement": RandomWaypointMovement,
@@ -99,9 +108,13 @@ class MComCore(gym.Env):
             "Handler": MComCentralHandler,
         }
 
+        # set up default configuration parameters for arrival pattern, ...
+        aparams = {"ep_time": ep_time, "reset_rng_episode": False}
+        config.update({"arrival_params": aparams})
         config.update({"channel_params": {}})
         config.update({"scheduler_params": {}})
-        mparams = {"width": width, "height": height, "reset_seed_on": "never"}
+        mparams = {"width": width, "height": height,
+                   "reset_rng_episode": False}
         config.update({"movement_params": mparams})
         uparams = {"lower": -20, "upper": 20, "coeffs": (10, 0, 10)}
         config.update({"utility_params": uparams})
@@ -112,19 +125,42 @@ class MComCore(gym.Env):
     def seeding(cls, config):
         seed = config["seed"]
         keys = [
+            "arrival_params",
             "channel_params",
             "scheduler_params",
             "movement_params",
             "utility_params",
         ]
         for num, key in enumerate(keys):
-            config[key]["seed"] = seed + num
+            config[key]["seed"] = seed + num + 1
 
         return config
 
     def reset(self):
         """Reset environment to starting state."""
+        # reset time & performance metrics
         self.time = 0.0
+        self.metrics = defaultdict(list)
+
+        # initialize RNG or reset (if necessary on episode end)
+        if self.reset_rng_episode or self.rng is None:
+            self.rng = np.random.default_rng(self.seed)
+
+        # reset state kept by arrival pattern, channel, scheduler, etc.
+        self.arrival.reset()
+        self.channel.reset()
+        self.scheduler.reset()
+        self.movement.reset()
+        self.utility.reset()
+
+        # generate new arrival and exit times for UEs
+        for ue in self.users.values():
+            ue.stime = self.arrival.arrival(ue)
+            ue.extime = self.arrival.departure(ue)
+
+        # generate new initial positons of UEs
+        for ue in self.users.values():
+            ue.x, ue.y = self.movement.initial_position(ue)
 
         # initially not all UEs request downlink connections (service)
         self.active = [ue for ue in self.users.values() if ue.stime <= 0]
@@ -137,30 +173,20 @@ class MComCore(gym.Env):
         # reset UEs' utilities
         self.utilities = {}
 
-        # reset state kept by channel, scheduler, movement and utility handlers
-        self.channel.reset()
-        self.scheduler.reset()
-        self.movement.reset()
-        self.utility.reset()
-
-        # reset positions of UEs to their initial position
-        for ue in self.users.values():
-            ue.x, ue.y = self.movement.initial_position(ue)
-
-        # TODO: generate new arrival and exit times for UEs
-
         # set time of last UE's departure
         self.max_departure = max(ue.extime for ue in self.users.values())
 
-        # reset simulation metrics
-        self.metrics = defaultdict(list)
+        # check if handler is applicable to mobile scenario
+        # NOTE: e.g. fails if the central handler is used,
+        # although the number of UEs changes
+        self.handler.check(self)
 
         return self.handler.observation(self)
 
     def apply_action(self, action: int, ue: UserEquipment) -> None:
         """Connect or disconnect `ue` to/from basestation `action`."""
-        # do not apply update to connections if IGNORE_ACTION is selected
-        if action == self.IGNORE_ACTION or ue not in self.active:
+        # do not apply update to connections if NOOP_ACTION is selected
+        if action == self.NOOP_ACTION or ue not in self.active:
             return
 
         bs = self.stations[action - 1]
@@ -447,11 +473,15 @@ class MComCore(gym.Env):
             self.mb_isolines = self.bs_isolines(1.0)
 
         # set up matplotlib figure & axis configuration
-        fig = plt.figure(figsize=(7.5, 3.7))
+        fig = plt.figure()
+        fx = max(3.0 / 2.0 * 1.25 * self.width / fig.dpi, 8.0)
+        fy = max(1.25 * self.height / fig.dpi, 5.0)
+        plt.close()
+        fig = plt.figure(figsize=(fx, fy))
         gs = fig.add_gridspec(
             ncols=2,
             nrows=3,
-            width_ratios=(3, 2),
+            width_ratios=(4, 2),
             height_ratios=(2, 3, 3),
             hspace=0.45,
             wspace=0.2,
@@ -463,10 +493,10 @@ class MComCore(gym.Env):
 
         sim_ax = fig.add_subplot(gs[:, 0])
         dash_ax = fig.add_subplot(gs[0, 1])
+        qoe_ax = fig.add_subplot(gs[1, 1])
         conn_ax = fig.add_subplot(
             gs[2, 1],
         )
-        qoe_ax = fig.add_subplot(gs[1, 1])
 
         # render simulation, metrics and score if step() was called
         # i.e. this prevents rendering in the sequential environment before

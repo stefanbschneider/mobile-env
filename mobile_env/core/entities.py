@@ -1,4 +1,4 @@
-from typing import Tuple, Final
+from typing import Tuple
 
 from shapely.geometry import Point
 
@@ -13,8 +13,9 @@ class BaseStation:
         tx: float,
         height: float,
     ):
-        # BS ID is final, i.e., cannot be set to another value & must be unique
-        self.bs_id: Final = bs_id
+        # BS ID should be final, i.e., BS ID must be unique
+        # NOTE: cannot use Final typing due to support for Python 3.7
+        self.bs_id = bs_id
         self.x, self.y = pos
         self.bw = bw  # in Hz
         self.frequency = freq  # in MHz
@@ -33,25 +34,24 @@ class UserEquipment:
     def __init__(
         self,
         ue_id: int,
-        init_pos: Tuple[float, float],
-        stime: int,
-        extime: int,
         velocity: float,
         snr_tr: float,
         noise: float,
         height: float,
     ):
-        # UE ID is final, i.e., cannot be set to another value & must be unique
-        self.ue_id: Final = ue_id
-        self.init_pos: Tuple[float, float] = init_pos
-        self.x, self.y = self.init_pos
-        self.stime: int = stime
-        self.extime: int = extime
+        # UE ID should be final, i.e., UE ID must be unique
+        # NOTE: cannot use Final typing due to support for Python 3.7
+        self.ue_id = ue_id
         self.velocity: float = velocity
 
         self.snr_threshold = snr_tr
         self.noise = noise
         self.height = height
+
+        self.x: float = None
+        self.y: float = None
+        self.stime: int = None
+        self.extime: int = None
 
     @property
     def point(self):

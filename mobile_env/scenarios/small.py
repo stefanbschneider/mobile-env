@@ -13,11 +13,10 @@ class MComSmall(MComCore):
             BaseStation(bs_id, pos, **config["bs"])
             for bs_id, pos in enumerate(stations)
         ]
-
-        ues = [(0, 5), (10, 20), (50, 20), (50, 70), (60, 30)]
+        num_ues = 5
         ues = [
-            UserEquipment(ue_id, pos, **config["ue"])
-            for ue_id, pos in enumerate(ues)
+            UserEquipment(ue_id, **config["ue"])
+            for ue_id in range(num_ues)
         ]
 
         super().__init__(stations, ues, config)
@@ -31,8 +30,6 @@ class MComSmall(MComCore):
         config.update(
             {
                 "ue": {
-                    "stime": 0,
-                    "extime": config["EP_MAX_TIME"],
                     "velocity": 1.5,
                     "snr_tr": 2e-8,
                     "noise": 1e-9,
