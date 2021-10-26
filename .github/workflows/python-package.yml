@@ -34,6 +34,6 @@ jobs:
     
     - name: Linting & Testing
       run: |
-        poetry run flake8 mobile_env
+        poetry run flake8 mobile_env --per-file-ignores="__init__.py:F401"
         poetry run pytest
 

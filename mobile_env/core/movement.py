@@ -7,43 +7,50 @@ from mobile_env.core.entities import UserEquipment
 
 
 class Movement:
-    def reset(self) -> None:
-        pass
+    def __init__(self, width: float, height: float,
+                 seed: int, reset_rng_episode: str):
 
-    @abstractmethod
-    def move(self, ue: UserEquipment) -> Tuple[float, float]:
-        pass
-
-    @abstractmethod
-    def initial_position(self, ue: UserEquipment) -> Tuple[float, float]:
-        pass
-
-
-class RandomWaypointMovement(Movement):
-    def __init__(self, width: float, height: float, seed: int,
-                 reset_seed_on: str, **kwargs):
         self.width, self.height = width, height
-        self.seed = seed
-        self.reset_seed_on = reset_seed_on
+        self.reset_rng_episode = reset_rng_episode
 
-        # track waypoints and initial positions per UE
-        self.waypoints: Dict[UserEquipment, Tuple[float, float]] = None
-        self.initial: Dict[UserEquipment, Tuple[float, float]] = None
-        # seed random movement and random initial positions
-        self.rng = np.random.default_rng(seed)
+        # RNG for movement and initial positions of UEs
+        self.seed = seed
+        self.rng = None
 
     def reset(self) -> None:
         """Reset state of movement object after episode ends."""
         # case: movement patterns remain unchanged between episodes
-        if self.reset_seed_on == "episode_end":
+        if self.reset_rng_episode or self.rng is None:
             self.rng = np.random.default_rng(self.seed)
 
-        # reset UE waypoints and initial positions
+    @abstractmethod
+    def move(self, ue: UserEquipment) -> Tuple[float, float]:
+        """Move UE at each time step."""
+        pass
+
+    @abstractmethod
+    def initial_position(self, ue: UserEquipment) -> Tuple[float, float]:
+        """Reset position of UE e.g. after episode ends."""
+        pass
+
+
+class RandomWaypointMovement(Movement):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        # track waypoints and initial positions per UE
+        self.waypoints: Dict[UserEquipment, Tuple[float, float]] = None
+        self.initial: Dict[UserEquipment, Tuple[float, float]] = None
+
+    def reset(self) -> None:
+        super().reset()
+        # NOTE: if RNG is not resetted after episode ends,
+        # initial positions will differ between episodes
         self.waypoints = {}
         self.initial = {}
 
     def move(self, ue: UserEquipment) -> Tuple[float, float]:
-        """Move UE a step prop. to its velocity towards its random waypoint."""
+        """Move UE a step towards the random waypoint."""
         # generate random waypoint if UE has none so far
         if ue not in self.waypoints:
             wx = self.rng.uniform(0, self.width)

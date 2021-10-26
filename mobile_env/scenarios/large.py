@@ -28,9 +28,10 @@ class MComLarge(MComCore):
             BaseStation(bs_id, pos, **config["bs"])
             for bs_id, pos in enumerate(stations)
         ]
-        num_ues = 15
+
+        num_ues = 30
         ues = [
-            UserEquipment(ue_id, (0, 0), **config["ue"])
+            UserEquipment(ue_id, **config["ue"])
             for ue_id in range(num_ues)
         ]
 
@@ -45,8 +46,6 @@ class MComLarge(MComCore):
         config.update(
             {
                 "ue": {
-                    "stime": 0,
-                    "extime": config["EP_MAX_TIME"],
                     "velocity": 1.5,
                     "snr_tr": 2e-8,
                     "noise": 1e-9,
