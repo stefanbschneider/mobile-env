@@ -13,7 +13,7 @@ documentation = "https://mobile-env.readthedocs.io/en/latest/?badge=latest"
 
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = "^3.7"
 matplotlib = "^3.4"
 Shapely = "^1.7.0"
 numpy = "^1.2.0"
@@ -34,6 +34,7 @@ black = "^21.9b0"
 flake8 = "^4.0.1"
 pylint = "^2.11.1"
 stable-baselines3 = "^1.2.0"
+ray = "^1.6.0"
 
 
 [tool.poetry.extras]
