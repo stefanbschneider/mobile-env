@@ -43,7 +43,6 @@ class UserEquipment:
         # NOTE: cannot use Final typing due to support for Python 3.7
         self.ue_id = ue_id
         self.velocity: float = velocity
-
         self.snr_threshold = snr_tr
         self.noise = noise
         self.height = height
