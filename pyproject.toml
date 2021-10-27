@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "mobile-env"
-version = "0.1.0"
+version = "0.0.0"
 description = "mobile-env: A minimalist environment for decision making in wireless mobile networks."
 authors = [
     "Stefan Schneider <stefan.schneider@upb.de>",

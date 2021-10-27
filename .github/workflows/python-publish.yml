@@ -1,22 +1,26 @@
-# This workflow will upload a Python Package using Twine when a release is created
-
-name: PyPI
+name: Publish
 
 on:
   release:
     types: [created]
-    tags:
-      - "v*.*.*"
 
 jobs:
-  build:
+  deploy:
+
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v2
-      - name: Build and publish to pypi
-        uses: JRubics/poetry-publish@v1.8
-        with:
-          repository_name: "mobile-env"
-          repository_url: "https://github.com/stefanbschneider/mobile-env"
-          repository_username: ${{ secrets.PYPI_USERNAME }}
-          repository_password: ${{ secrets.PYPI_PASSWORD }}
+    - uses: actions/checkout@v2
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.x'
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install poetry
+    - name: Build and publish
+      run: |
+        poetry version $(git describe --tags --abbrev=0)
+        poetry build
+        poetry publish --username ${{ secrets.PYPI_USERNAME }} --password ${{ secrets.PYPI_PASSWORD }}
