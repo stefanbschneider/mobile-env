@@ -16,7 +16,7 @@ Mobile-Env supports multi-agent and centralized reinforcement learning policies.
 ## Installation
 `pip install mobile-env`
 
-## Usage
+## Example Usage Stable-Baselines3
 
 ```python
 import gym
@@ -32,6 +32,42 @@ while not done:
     env.render()
 ```
 
-## Documentation
+## Customizability
+Mobile-Env supports custom channel models, movement patterns, arrival & departure models, resource multiplexing schemes and utility functions. For example, replacing the default [Okumura–Hata](https://en.wikipedia.org/wiki/Hata_model) channel model by a (simplified) path loss model can be as easy as this:
+```python
+import numpy as np
+from mobile_env.core.base import MComCore
+from mobile_env.core.channel import Channel
 
+
+class PathLoss(Channel):
+    def __init__(self, gamma, **kwargs):
+        super().__init__(**kwargs)
+        # path loss exponent
+        self.gamma = gamma
+
+    def power_loss(self, bs, ue):
+        """Computes power loss between BS and UE."""
+        dist = bs.point.distance(ue.point)
+        loss = 10 * self.gamma * np.log10(4 * np.pi * dist * bs.frequency)
+        return loss
+
+
+# replace default channel model in configuration 
+config = MComCore.default_config()
+config['channel'] = PathLoss
+
+# pass init parameters to custom channel class!
+config['channel_params'].update({'gamma': 2.0})
+
+# create environment with custom channel model
+env = gym.make('mobile-small-central-v0', config=config)
+...
+```
+
+## Documentation
 Read the [documentation online](https://mobile-env.readthedocs.io/en/latest/index.html).
+
+
+## DeepCoMP
+Mobile-Env builds on [DeepCoMP](https://github.com/CN-UPB/DeepCoMP) and makes its simulation accessible via an OpenAI Gym interface that is independent of any specific reinforcement learning framework.

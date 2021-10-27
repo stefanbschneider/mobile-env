@@ -5,26 +5,19 @@
 
 Welcome to Mobile-Env's documentation!
 ======================================
+This project 
 
+
+Documentation contents
+======================
 .. toctree::
    :maxdepth: 2
-   :caption: Getting Started
-
    guide/install
-   guide/quickstart
    guide/examples
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Mobile Environment
-
-   modules/envs
+   modules/core
+   modules/scenarios
+   modules/handlers
    modules/wrappers
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Source
-
    source/modules
 
 Indices and tables
