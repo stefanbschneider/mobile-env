@@ -1,11 +1,12 @@
 from typing import Dict, Tuple
 
-import gym
 import numpy as np
 from gym import spaces
 
+from mobile_env.handlers.handler import Handler
 
-class MComCentralHandler:
+
+class MComCentralHandler(Handler):
     ftrs = ["connections", "snrs", "utility"]
 
     @classmethod
@@ -63,7 +64,3 @@ class MComCentralHandler:
             ue.stime <= 0.0 and ue.extime >= env.EP_MAX_TIME
             for ue in env.users.values()
         ], "Central environment cannot handle a changing number of UEs."
-
-    @classmethod
-    def info(cls, env):
-        return {}

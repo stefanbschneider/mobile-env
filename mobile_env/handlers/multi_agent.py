@@ -4,8 +4,10 @@ import gym
 import numpy as np
 from gym import spaces
 
+from mobile_env.handlers.handler import Handler
 
-class MComMAHandler:
+
+class MComMAHandler(Handler):
     ftrs = ["connections", "snrs", "utility", "bcast", "stations_connected"]
 
     @classmethod
@@ -86,11 +88,3 @@ class MComMAHandler:
     def action(cls, env, action: Dict[int, int]):
         """Base environment by default expects action dictionary."""
         return action
-
-    @classmethod
-    def info(cls, env):
-        return {}
-
-    @classmethod
-    def check(cls, env):
-        pass

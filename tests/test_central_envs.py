@@ -10,6 +10,9 @@ class TestCentralEnvs(unittest.TestCase):
     def test_central_small(self):
         check_env(gym.make('mobile-small-central-v0'))
 
+    def test_central_medium(self):
+        check_env(gym.make('mobile-medium-central-v0'))
+
     def test_central_large(self):
         check_env(gym.make('mobile-large-central-v0'))
 

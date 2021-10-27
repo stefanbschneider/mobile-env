@@ -15,29 +15,18 @@ class Channel:
     def reset(self) -> None:
         pass
 
-    @classmethod
     @abstractmethod
-    def power_loss(cls, bs, ue):
+    def power_loss(self, bs, ue):
         """Calculate power loss for transmission between BS and UE."""
         pass
 
-    @classmethod
-    def snr(cls, bs, ue):
+    def snr(self, bs, ue):
         """Calculate SNR for transmission between BS and UE."""
-        loss = cls.power_loss(bs, ue)
+        loss = self.power_loss(bs, ue)
         power = 10 ** ((bs.tx_power - loss) / 10)
         return power / ue.noise
 
-    @classmethod
-    def datarate(cls, bs, ue, snr):
-        """Calculate max. data rate for transmission between BS and UE."""
-        if snr > ue.snr_threshold:
-            return bs.bw * np.log2(1 + snr)
-
-        return 0.0
-
-    @classmethod
-    def isoline(cls, bs, ue_config, map_bounds, dthresh, num=32):
+    def isoline(self, bs, ue_config, map_bounds, dthresh, num=32):
         """Isoline where UEs receive at least `dthres` max. data."""
         width, height = map_bounds
 
@@ -47,7 +36,7 @@ class Channel:
 
         for theta in np.linspace(EPSILON, 2 * np.pi, num=num):
             # calculate collision point with map boundary
-            x1, y1 = cls.boundary_collison(theta, bs.x, bs.y, width, height)
+            x1, y1 = self.boundary_collison(theta, bs.x, bs.y, width, height)
 
             # points on line between BS and collision with map
             slope = (y1 - bs.y) / (x1 - bs.x)
@@ -57,9 +46,9 @@ class Channel:
             # compute data rate for each point
             def drate(point):
                 dummy.x, dummy.y = point
-                snr = cls.snr(bs, dummy)
+                snr = self.snr(bs, dummy)
 
-                return cls.datarate(bs, dummy, snr)
+                return self.datarate(bs, dummy, snr)
 
             points = zip(xs.tolist(), ys.tolist())
             datarates = np.asarray(list(map(drate, points)))
@@ -72,6 +61,14 @@ class Channel:
 
         xs, ys = zip(*isoline)
         return xs, ys
+
+    @classmethod
+    def datarate(cls, bs, ue, snr):
+        """Calculate max. data rate for transmission between BS and UE."""
+        if snr > ue.snr_threshold:
+            return bs.bw * np.log2(1 + snr)
+
+        return 0.0
 
     @classmethod
     def boundary_collison(cls, theta, x0, y0, width, height):
@@ -119,8 +116,7 @@ class Channel:
 
 
 class OkumuraHata(Channel):
-    @classmethod
-    def power_loss(cls, bs, ue):
+    def power_loss(self, bs, ue):
         distance = bs.point.distance(ue.point)
 
         ch = (

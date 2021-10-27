@@ -8,7 +8,7 @@ from mobile_env.core.entities import UserEquipment
 
 class Movement:
     def __init__(self, width: float, height: float,
-                 seed: int, reset_rng_episode: str):
+                 seed: int, reset_rng_episode: str, **kwargs):
 
         self.width, self.height = width, height
         self.reset_rng_episode = reset_rng_episode
