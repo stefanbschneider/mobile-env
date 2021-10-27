@@ -22,7 +22,7 @@ class MComCentralHandler:
     def observation_space(cls, env) -> spaces.Dict:
         # observation is a single vector of concatenated UE representations
         size = cls.ue_obs_size(env)
-        return gym.spaces.Box(low=-1, high=1, shape=(env.NUM_USERS * size,))
+        return spaces.Box(low=-1.0, high=1.0, shape=(env.NUM_USERS * size,))
 
     @classmethod
     def action(cls, env, actions: Tuple[int]) -> Dict[int, int]:

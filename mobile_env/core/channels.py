@@ -41,7 +41,7 @@ class Channel:
         """Isoline where UEs receive at least `dthres` max. data."""
         width, height = map_bounds
 
-        dummy = UserEquipment(0, (0.0, 0.0), **ue_config)
+        dummy = UserEquipment(None, **ue_config)
 
         isoline = []
 

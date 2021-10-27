@@ -53,6 +53,9 @@ class RLlibMAWrapper(MultiAgentEnv):
 
         return obs, rews, dones, infos
 
+    def render(self, mode="human") -> None:
+        return self.env.render(mode)
+
 
 class PettingZooWrapper:
     pass

@@ -23,13 +23,13 @@ class MComMAHandler:
 
     @classmethod
     def observation_space(cls, env) -> spaces.Dict:
+        size = cls.ue_obs_size(env)
         space = {
             ue_id: spaces.Box(
-                low=-1, high=1, shape=(cls.ue_obs_size,), dtype=np.float32
+                low=-1, high=1, shape=(size,), dtype=np.float32
             )
             for ue_id in env.users
         }
-        # print("MCOM-MA-HANDLER: ", space.keys())
 
         return spaces.Dict(space)
 
