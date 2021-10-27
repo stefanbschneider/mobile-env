@@ -21,6 +21,7 @@ gym = "^0.17.1"
 pygame = "^2.0"
 svgpath2mpl = "^1.0.0"
 
+
 [tool.poetry.dev-dependencies]
 # linting dependencies
 flake8 = "^4.0.1"
