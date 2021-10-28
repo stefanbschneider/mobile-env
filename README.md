@@ -9,7 +9,7 @@ Mobile-Env is a minimalist OpenAI-Gym environment for training and evaluating in
 Mobile-Env supports multi-agent and centralized reinforcement learning policies. It provides various choices for rewards and observations. Mobile-Env is also easily extendable, so that anyone may add another channel models (e.g. path loss), movement patterns, utility functions, etc.
 
 <p align="center">
-    <img src="https://user-images.githubusercontent.com/36734964/139145313-bc25ca78-0fcd-485f-9012-b7b6960243ed.gif" width="50%"/>
+    <img src="https://user-images.githubusercontent.com/36734964/139288123-7732eff2-24d4-4c25-87fd-ac906f261c93.gif" width="65%"/>
 </p>
 
 
