@@ -1,11 +1,12 @@
 from typing import Dict, Tuple
 
-import gym
 import numpy as np
 from gym import spaces
 
+from mobile_env.handlers.handler import Handler
 
-class MComCentralHandler:
+
+class MComCentralHandler(Handler):
     ftrs = ["connections", "snrs", "utility"]
 
     @classmethod
@@ -22,7 +23,7 @@ class MComCentralHandler:
     def observation_space(cls, env) -> spaces.Dict:
         # observation is a single vector of concatenated UE representations
         size = cls.ue_obs_size(env)
-        return gym.spaces.Box(low=-1, high=1, shape=(env.NUM_USERS * size,))
+        return spaces.Box(low=-1.0, high=1.0, shape=(env.NUM_USERS * size,))
 
     @classmethod
     def action(cls, env, actions: Tuple[int]) -> Dict[int, int]:
@@ -63,7 +64,3 @@ class MComCentralHandler:
             ue.stime <= 0.0 and ue.extime >= env.EP_MAX_TIME
             for ue in env.users.values()
         ], "Central environment cannot handle a changing number of UEs."
-
-    @classmethod
-    def info(cls, env):
-        return {}

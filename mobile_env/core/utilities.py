@@ -32,6 +32,7 @@ class BoundedLogUtility(Utility):
         coeffs: Tuple[float, float, float],
         **kwargs: Dict
     ):
+        super().__init__(**kwargs)
         self.lower = lower
         self.upper = upper
         self.coeffs = coeffs

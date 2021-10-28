@@ -4,8 +4,10 @@ import gym
 import numpy as np
 from gym import spaces
 
+from mobile_env.handlers.handler import Handler
 
-class MComMAHandler:
+
+class MComMAHandler(Handler):
     ftrs = ["connections", "snrs", "utility", "bcast", "stations_connected"]
 
     @classmethod
@@ -23,13 +25,13 @@ class MComMAHandler:
 
     @classmethod
     def observation_space(cls, env) -> spaces.Dict:
+        size = cls.ue_obs_size(env)
         space = {
             ue_id: spaces.Box(
-                low=-1, high=1, shape=(cls.ue_obs_size,), dtype=np.float32
+                low=-1, high=1, shape=(size,), dtype=np.float32
             )
             for ue_id in env.users
         }
-        # print("MCOM-MA-HANDLER: ", space.keys())
 
         return spaces.Dict(space)
 
@@ -86,11 +88,3 @@ class MComMAHandler:
     def action(cls, env, action: Dict[int, int]):
         """Base environment by default expects action dictionary."""
         return action
-
-    @classmethod
-    def info(cls, env):
-        return {}
-
-    @classmethod
-    def check(cls, env):
-        pass

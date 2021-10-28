@@ -105,7 +105,7 @@ class MComCore(gym.Env):
             "scheduler": ResourceFair,
             "movement": RandomWaypointMovement,
             "utility": BoundedLogUtility,
-            "Handler": MComCentralHandler,
+            "handler": MComCentralHandler,
         }
 
         # set up default configuration parameters for arrival pattern, ...
