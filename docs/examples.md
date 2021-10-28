@@ -1,3 +1,5 @@
+(examples)=
+
 # Examples
 
 ## Examples on Google Colab
@@ -22,5 +24,3 @@ env = gym.make('mobile-large-central-v0')
 env = gym.make('mobile-large-ma-v0')
 ...
 ```
-
-
