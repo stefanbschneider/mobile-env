@@ -17,7 +17,7 @@ class TestMAEnvs(unittest.TestCase):
             return RLlibMAWrapper(gym.make(name))
 
         stop = {
-            "training_iteration": 1
+            "episodes_total": 1
         }
 
         config = {
@@ -47,9 +47,3 @@ class TestMAEnvs(unittest.TestCase):
 
     def test_small_ma(self):
         self._test_ma_env('small')
-
-    def test_medium_ma(self):
-        self._test_ma_env('medium')
-
-    def test_large_ma(self):
-        self._test_ma_env('large')
