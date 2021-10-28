@@ -2,7 +2,11 @@
 name = "mobile-env"
 version = "0.0.0"
 description = "mobile-env: A minimalist environment for decision making in wireless mobile networks."
-authors = ["Stefan Schneider <stefan.schneider@upb.de>"]
+readme = "README.md"
+authors = [
+    "Stefan Schneider <stefan.schneider@upb.de>",
+    "Stefan Werner <stefanwerner1997@mail.upb.de>"
+    ]
 license = "MIT"
 repository = "https://github.com/stefanbschneider/mobile-env"
 homepage = "https://github.com/stefanbschneider/mobile-env"
@@ -18,6 +22,11 @@ gym = "^0.17.1"
 pygame = "^2.0"
 svgpath2mpl = "^1.0.0"
 
+# documentation dependencies
+# (must be optional here & and defined in extras section)
+sphinx = {version = "^3.1", optional = true}
+sphinx-rtd-theme = {version = "^0.4", optional = true}
+myst-parser = {version = "^0.15.2", optional = true}
 
 [tool.poetry.dev-dependencies]
 # linting dependencies
@@ -29,14 +38,9 @@ stable-baselines3 = "^1.2.0"
 ray = {version = "^1.7.1", extras = ["rllib"]}
 aioredis = "<2.0"
 
-# documentation dependencies
-# (must be optional here & and defined in extras section)
-sphinx = {version = "^3.1", optional = true}
-sphinx-rtd-theme = {version = "^0.4", optional = true}
-myst-parser = {version = "^0.15.2", optional = true}
-
 [tool.poetry.extras]
-docs = ["sphinx", "sphinx-rtd-theme", "myst-parser"]
+docs = ["sphinx>=4.2.0", "sphinx-rtd-theme>=1.0.0", "myst-parser>=0.15.2"]
+
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
