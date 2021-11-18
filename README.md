@@ -47,6 +47,10 @@ After cloning, install in "editable" mode (-e):
 pip install -e .
 ```
 
+This is equivalent to running `pip install -r requirements.txt`.
+
+If you want to run tests or examples, also install the requirements in `requirements_tests.txt`.
+For dependencies for building docs, install the requirements in `requirements_docs.txt`.
 
 ## Example Usage
 
