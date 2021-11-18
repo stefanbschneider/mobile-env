@@ -1,10 +1,26 @@
 [![Python package](https://github.com/stefanbschneider/mobile-env/actions/workflows/python-package.yml/badge.svg)](https://github.com/stefanbschneider/mobile-env/actions/workflows/python-package.yml)
 [![Documentation Status](https://readthedocs.org/projects/mobile-env/badge/?version=latest)](https://mobile-env.readthedocs.io/en/latest/?badge=latest)
 [![Publish](https://github.com/stefanbschneider/mobile-env/actions/workflows/python-publish.yml/badge.svg)](https://github.com/stefanbschneider/mobile-env/actions/workflows/python-publish.yml)
-#  [Try Mobile-Env on Google Colab!   ![Open in colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/stefanbschneider/mobile-env/blob/master/examples/tutorial.ipynb)
-Mobile-Env is a minimalist OpenAI-Gym environment for training and evaluating intelligent coordination algorithms in wireless mobile networks. At each time step, it must be decided what connections should be established among user equipments (UEs) and basestations (BSs) in order to maximize Quality of Experience (QoE) globally. To maximize the QoE of single UEs, the UE intends to connect to as many BSs as possible, which yields higher (macro) data rates. However, BSs multiplex resources among connected UEs (e.g. schedule physical resource blocks) and, therefore, UEs compete for limited resources (conflicting goals). To maximize QoE globally, the policy must recognize that (1) the data rate of any connection is governed by the channel (e.g. SNR) between UE and BS and (2) QoE of single UEs not necessarily grows linearly with increasing data rate.
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/stefanbschneider/mobile-env/blob/master/examples/tutorial.ipynb)
 
-Mobile-Env supports multi-agent and centralized reinforcement learning policies. It provides various choices for rewards and observations. Mobile-Env is also easily extendable, so that anyone may add another channel models (e.g. path loss), movement patterns, utility functions, etc.
+
+# mobile-env: An Open Environment for Autonomous Coordination in Mobile Networks
+
+mobile-env is an open, minimalist OpenAI Gym environment for training and evaluating coordination algorithms in wireless mobile networks. 
+The environment allows modeling users moving around an area and can connect to one or multiple base stations.
+Using the Gym interface, the environment can be used with any reinforcement learning framework (e.g., stable-baselines or Ray RLlib) or any custom (even non-RL) coordination approach.
+The environment is highly configurable and can be easily extended (e.g., regarding users, movement patterns, channel models, etc.).
+
+mobile-env supports multi-agent and centralized reinforcement learning policies. It provides various choices for rewards and observations. mobile-env is also easily extendable, so that anyone may add another channel models (e.g. path loss), movement patterns, utility functions, etc.
+
+As an example, mobile-env can be used to study multi-cell selection in coordinated multipoint.
+Here, it must be decided what connections should be established among user equipments (UEs) and base stations (BSs) in order to maximize Quality of Experience (QoE) globally. 
+To maximize the QoE of single UEs, the UE intends to connect to as many BSs as possible, which yields higher (macro) data rates. 
+However, BSs multiplex resources among connected UEs (e.g. schedule physical resource blocks) and, therefore, UEs compete for limited resources (conflicting goals). 
+To maximize QoE globally, the policy must recognize that (1) the data rate of any connection is governed by the channel (e.g. SNR) between UE and BS and (2) QoE of single UEs not necessarily grows linearly with increasing data rate.
+
+
+**[Try mobile-env on Google Colab: ![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/stefanbschneider/mobile-env/blob/master/examples/tutorial.ipynb)**
 
 <p align="center">
     <img src="https://user-images.githubusercontent.com/36734964/139288123-7732eff2-24d4-4c25-87fd-ac906f261c93.gif" width="65%"/>
@@ -12,9 +28,29 @@ Mobile-Env supports multi-agent and centralized reinforcement learning policies.
 
 
 ## Installation
+
+### From PyPI (Recommended)
+
+The simplest option is to install the latest release of `mobile-env` from PyPI using pip:
+
 ```bash
 pip install mobile-env
 ```
+This is recommended for most users. mobile-env is tested on Ubuntu, Windows, and MacOS.
+
+### From Source (Development)
+
+Alternatively, for development, you can clone `mobile-env` from GitHub and install it from source.
+After cloning, install in "editable" mode (-e):
+
+```bash
+pip install -e .
+```
+
+This is equivalent to running `pip install -r requirements.txt`.
+
+If you want to run tests or examples, also install the requirements in `requirements_tests.txt`.
+For dependencies for building docs, install the requirements in `requirements_docs.txt`.
 
 ## Example Usage
 
@@ -32,9 +68,13 @@ while not done:
     env.render()
 ```
 
-## Customizability
-Mobile-Env supports custom channel models, movement patterns, arrival & departure models, resource multiplexing schemes and utility functions. For example, replacing the default [Okumura–Hata](https://en.wikipedia.org/wiki/Hata_model) channel model by a (simplified) path loss model can be as easy as this:
+## Customization
+
+mobile-env supports custom channel models, movement patterns, arrival & departure models, resource multiplexing schemes and utility functions. 
+For example, replacing the default [Okumura–Hata](https://en.wikipedia.org/wiki/Hata_model) channel model by a (simplified) path loss model can be as easy as this:
+
 ```python
+import gym
 import numpy as np
 from mobile_env.core.base import MComCore
 from mobile_env.core.channel import Channel
@@ -62,7 +102,7 @@ config['channel_params'].update({'gamma': 2.0})
 
 # create environment with custom channel model
 env = gym.make('mobile-small-central-v0', config=config)
-...
+# ...
 ```
 
 ## Documentation
@@ -70,4 +110,27 @@ Read the [documentation online](https://mobile-env.readthedocs.io/en/latest/inde
 
 
 ## DeepCoMP
-Mobile-Env builds on [DeepCoMP](https://github.com/CN-UPB/DeepCoMP) and makes its simulation accessible via an OpenAI Gym interface that is independent of any specific reinforcement learning framework.
+mobile-env builds on [DeepCoMP](https://github.com/CN-UPB/DeepCoMP) and makes its simulation accessible via an OpenAI Gym interface that is independent of any specific reinforcement learning framework.
+
+## Citing
+
+If you use mobile-env in your work, please cite with:
+
+```
+@misc{mobile-env,
+  author = {Schneider, Stefan and Werner, Stefan and Karl, Holger},
+  title = {An Open Environment for Autonomous Coordination in Mobile Networks},
+  year = {2021},
+  publisher = {GitHub},
+  journal = {GitHub Repository},
+  howpublished = {\url{https://github.com/stefanbschneider/mobile-env}},
+}
+```
+
+mobile-env is based on [DeepCoMP](https://github.com/CN-UPB/DeepCoMP), 
+providing the underlying environment as open, stand-alone platform to be used by others.
+mobile-env is inspired by [highway-env](https://github.com/eleurent/highway-env), which focuses on autonomous driving.
+
+List of repositories, publications, or preprints using `mobile-env` (please open a pull request to add missing entries):
+
+* [DeepCoMP](https://github.com/CN-UPB/DeepCoMP)
