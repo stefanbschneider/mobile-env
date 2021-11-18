@@ -1,8 +1,9 @@
-name: Publish
+name: PyPI
 
 on:
   release:
     types: [created]
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -18,10 +19,11 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install poetry
+        pip install setuptools wheel twine
     - name: Build and publish
+      env:
+        TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
+        TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
       run: |
-        poetry version $(git describe --tags --abbrev=0)
-        poetry config pypi-token.pypi ${{ secrets.PYPI_TOKEN }}
-        poetry publish --build
-        
+        python setup.py sdist bdist_wheel
+        twine upload dist/*

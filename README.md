@@ -36,7 +36,7 @@ The simplest option is to install the latest release of `mobile-env` from PyPI u
 ```bash
 pip install mobile-env
 ```
-This is recommended for most users.
+This is recommended for most users. mobile-env is tested on Ubuntu, Windows, and MacOS.
 
 ### From Source (Development)
 
