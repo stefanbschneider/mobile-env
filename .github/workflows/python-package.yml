@@ -28,7 +28,7 @@ jobs:
 
     - name: Install mobile-env and additional dependencies
       run: |
-        sudo apt update -y
+        # sudo apt update -y
         # sudo apt install ffmpeg imagemagick
         python -m pip install --upgrade pip
         pip install .
