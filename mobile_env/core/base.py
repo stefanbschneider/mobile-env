@@ -91,7 +91,7 @@ class MComCore(gym.Env):
         """Set default configuration of environment dynamics."""
         # set up configuration of environment
         width, height = 200, 200
-        ep_time = 250
+        ep_time = 100
         config = {
             # environment parameters:
             "width": width,
@@ -203,8 +203,8 @@ class MComCore(gym.Env):
         snr = self.channel.snr(bs, ue)
         return snr > ue.snr_threshold
 
-    def available_connections(self, ue: UserEquipment) -> Dict:
-        """Returns dict of what basestations users could connect to."""
+    def available_connections(self, ue: UserEquipment) -> Set:
+        """Returns set of what base stations users could connect to."""
         stations = self.stations.values()
         return {bs for bs in stations if self.check_connectivity(bs, ue)}
 
