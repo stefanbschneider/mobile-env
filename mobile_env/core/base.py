@@ -106,6 +106,22 @@ class MComCore(gym.Env):
             "movement": RandomWaypointMovement,
             "utility": BoundedLogUtility,
             "handler": MComCentralHandler,
+
+            # default cell config
+            "bs": {
+                "bw": 9e6,
+                "freq": 2500,
+                "tx": 30,
+                "height": 50
+            },
+
+            # default UE config
+            "ue": {
+                "velocity": 1.5,
+                "snr_tr": 2e-8,
+                "noise": 1e-9,
+                "height": 1.5,
+            },
         }
 
         # set up default configuration parameters for arrival pattern, ...
