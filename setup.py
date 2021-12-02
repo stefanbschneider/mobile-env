@@ -20,9 +20,9 @@ requirements = [
 setup(
     name="mobile-env",
     # always use higher version in dev than what's on PyPI
-    version="2.0.0dev",
+    version="0.3.0",
     author="Stefan Schneider, Stefan Werner",
-    description="mobile-env: An Open Environment for Autonomous Coordination in Mobile Networks",
+    description="mobile-env: An Open Environment for Autonomous Coordination in Wireless Mobile Networks",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/stefanbschneider/mobile-env",
