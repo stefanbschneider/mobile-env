@@ -7,11 +7,11 @@ from mobile_env.handlers.handler import Handler
 
 
 class MComCentralHandler(Handler):
-    ftrs = ["connections", "snrs", "utility"]
+    features = ["connections", "snrs", "utility"]
 
     @classmethod
     def ue_obs_size(cls, env) -> int:
-        return sum(env.feature_sizes[ftr] for ftr in cls.ftrs)
+        return sum(env.feature_sizes[ftr] for ftr in cls.features)
 
     @classmethod
     def action_space(cls, env) -> spaces.Dict:
@@ -40,7 +40,7 @@ class MComCentralHandler(Handler):
         """Select from & flatten observations from MA setting."""
         # select observations considered in the central setting
         obs = {
-            ue_id: [obs_dict[key] for key in cls.ftrs]
+            ue_id: [obs_dict[key] for key in cls.features]
             for ue_id, obs_dict in env.features().items()
         }
 
