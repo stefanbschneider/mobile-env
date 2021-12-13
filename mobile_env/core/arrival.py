@@ -31,7 +31,7 @@ class Arrival:
 
 
 class NoDeparture(Arrival):
-    """Alle UEs immediately request service and do not depart thereafter."""
+    """All UEs immediately request service and do not depart thereafter."""
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 

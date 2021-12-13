@@ -7,20 +7,20 @@ from mobile_env.handlers.handler import Handler
 
 
 class MComCentralHandler(Handler):
-    ftrs = ["connections", "snrs", "utility"]
+    features = ["connections", "snrs", "utility"]
 
     @classmethod
     def ue_obs_size(cls, env) -> int:
-        return sum(env.feature_sizes[ftr] for ftr in cls.ftrs)
+        return sum(env.feature_sizes[ftr] for ftr in cls.features)
 
     @classmethod
-    def action_space(cls, env) -> spaces.Dict:
+    def action_space(cls, env) -> spaces.MultiDiscrete:
         # define multi-discrete action space for central setting
         # each element of a multi-discrete action denotes one UE's decision
         return spaces.MultiDiscrete([env.NUM_STATIONS + 1 for _ in env.users])
 
     @classmethod
-    def observation_space(cls, env) -> spaces.Dict:
+    def observation_space(cls, env) -> spaces.Box:
         # observation is a single vector of concatenated UE representations
         size = cls.ue_obs_size(env)
         return spaces.Box(low=-1.0, high=1.0, shape=(env.NUM_USERS * size,))
@@ -40,7 +40,7 @@ class MComCentralHandler(Handler):
         """Select from & flatten observations from MA setting."""
         # select observations considered in the central setting
         obs = {
-            ue_id: [obs_dict[key] for key in cls.ftrs]
+            ue_id: [obs_dict[key] for key in cls.features]
             for ue_id, obs_dict in env.features().items()
         }
 

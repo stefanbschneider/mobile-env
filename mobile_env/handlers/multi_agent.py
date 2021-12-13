@@ -8,11 +8,13 @@ from mobile_env.handlers.handler import Handler
 
 
 class MComMAHandler(Handler):
-    ftrs = ["connections", "snrs", "utility", "bcast", "stations_connected"]
+    features = [
+        "connections", "snrs", "utility", "bcast", "stations_connected"
+    ]
 
     @classmethod
     def ue_obs_size(cls, env) -> int:
-        return sum(env.feature_sizes[ftr] for ftr in cls.ftrs)
+        return sum(env.feature_sizes[ftr] for ftr in cls.features)
 
     @classmethod
     def action_space(cls, env) -> spaces.Dict:
@@ -73,7 +75,7 @@ class MComMAHandler(Handler):
 
         # select observations for multi-agent setting from base feature set
         obs = {
-            ue_id: [obs_dict[key] for key in cls.ftrs]
+            ue_id: [obs_dict[key] for key in cls.features]
             for ue_id, obs_dict in features.items()
         }
 

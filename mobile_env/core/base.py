@@ -91,7 +91,7 @@ class MComCore(gym.Env):
         """Set default configuration of environment dynamics."""
         # set up configuration of environment
         width, height = 200, 200
-        ep_time = 250
+        ep_time = 100
         config = {
             # environment parameters:
             "width": width,
@@ -106,6 +106,22 @@ class MComCore(gym.Env):
             "movement": RandomWaypointMovement,
             "utility": BoundedLogUtility,
             "handler": MComCentralHandler,
+
+            # default cell config
+            "bs": {
+                "bw": 9e6,
+                "freq": 2500,
+                "tx": 30,
+                "height": 50
+            },
+
+            # default UE config
+            "ue": {
+                "velocity": 1.5,
+                "snr_tr": 2e-8,
+                "noise": 1e-9,
+                "height": 1.5,
+            },
         }
 
         # set up default configuration parameters for arrival pattern, ...
@@ -203,8 +219,8 @@ class MComCore(gym.Env):
         snr = self.channel.snr(bs, ue)
         return snr > ue.snr_threshold
 
-    def available_connections(self, ue: UserEquipment) -> Dict:
-        """Returns dict of what basestations users could connect to."""
+    def available_connections(self, ue: UserEquipment) -> Set:
+        """Returns set of what base stations users could connect to."""
         stations = self.stations.values()
         return {bs for bs in stations if self.check_connectivity(bs, ue)}
 

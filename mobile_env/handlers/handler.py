@@ -1,5 +1,5 @@
+import abc
 from typing import Dict
-from abc import abstractclassmethod
 
 from gym.spaces.space import Space
 
@@ -7,27 +7,32 @@ from gym.spaces.space import Space
 class Handler:
     """Defines Gym interface methods called by core simulation."""
 
-    @abstractclassmethod
+    @classmethod
+    @abc.abstractmethod
     def action_space(cls, env) -> Space:
         """Defines action space for passed environment."""
         pass
 
-    @abstractclassmethod
+    @classmethod
+    @abc.abstractmethod
     def observation_space(cls, env) -> Space:
         """Defines observation space for passed environment."""
         pass
 
-    @abstractclassmethod
+    @classmethod
+    @abc.abstractmethod
     def action(cls, env, action) -> Dict[int, int]:
         """Transform passed action(s) to dict shape expected by simulation."""
         pass
 
-    @abstractclassmethod
+    @classmethod
+    @abc.abstractmethod
     def observation(cls, env):
         """Computes observations for agent."""
         pass
 
-    @abstractclassmethod
+    @classmethod
+    @abc.abstractmethod
     def reward(cls, env):
         """Computes rewards for agent."""
         pass
