@@ -8,7 +8,9 @@ from mobile_env.handlers.handler import Handler
 
 
 class MComMAHandler(Handler):
-    features = ["connections", "snrs", "utility", "bcast", "stations_connected"]
+    features = [
+        "connections", "snrs", "utility", "bcast", "stations_connected"
+    ]
 
     @classmethod
     def ue_obs_size(cls, env) -> int:
