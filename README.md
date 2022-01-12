@@ -34,7 +34,7 @@ Documentation and API: [ReadTheDocs](https://mobile-env.readthedocs.io/en/latest
 
 ### From PyPI (Recommended)
 
-The simplest option is to install the latest release of `mobile-env` from PyPI using pip:
+The simplest option is to install the latest release of `mobile-env` from [PyPI](https://pypi.org/project/mobile-env/) using pip:
 
 ```bash
 pip install mobile-env

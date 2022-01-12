@@ -1,8 +1,14 @@
 (components)=
 
-# Modules
+# Packages
 
-## Simulation
+`mobile-env` is structured into four main packages, each with multiple modules: Core, handlers, scenarios, and wrappers.
+These packages are described in the following.
+
+
+## Core
+
+The core package contains the core simulation logic of `mobile-env`.
 
 The [base environment](https://mobile-env.readthedocs.io/en/latest/source/mobile_env.core.html#mobile_env.core.base.MComCore) class simulates cell assignment of many user equipments (UEs) to possibly multiple basestations (BSs) in a mobile communication setting. Our simulation is mainly composed of five components that implement their functionality in a replacable manner:
 

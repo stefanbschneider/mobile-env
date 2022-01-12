@@ -9,12 +9,14 @@
    :target: https://mobile-env.readthedocs.io/en/latest/?badge=latest
 .. |Publish| image:: https://github.com/stefanbschneider/mobile-env/actions/workflows/python-publish.yml/badge.svg
    :target: https://github.com/stefanbschneider/mobile-env/actions/workflows/python-publish.yml
+.. |Colab| image:: https://colab.research.google.com/assets/colab-badge.svg
+   :target: https://colab.research.google.com/github/stefanbschneider/mobile-env/blob/master/examples/demo.ipynb
 
-|Python package| |Documentation Status| |Publish|
+|Python package| |Documentation Status| |Publish| |Colab|
 
 Welcome to Mobile-Env's documentation!
 ======================================
-This project open-sources a minimalist environment for cell selection in wireless mobile networks.
+This project is a minimalist, open-source environment for cell selection in wireless mobile networks.
 
 This documentation provides:
 
