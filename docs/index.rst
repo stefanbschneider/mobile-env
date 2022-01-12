@@ -18,6 +18,8 @@ Welcome to Mobile-Env's documentation!
 ======================================
 This project is a minimalist, open-source environment for cell selection in wireless mobile networks.
 
+`mobile-env` GitHub repository: https://github.com/stefanbschneider/mobile-env
+
 This documentation provides:
 
 1. :ref:`installation <installation>` instructions
