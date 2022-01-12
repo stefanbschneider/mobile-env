@@ -1,7 +1,7 @@
 [![CI](https://github.com/stefanbschneider/mobile-env/actions/workflows/python-package.yml/badge.svg)](https://github.com/stefanbschneider/mobile-env/actions/workflows/python-package.yml)
 [![PyPI](https://github.com/stefanbschneider/mobile-env/actions/workflows/python-publish.yml/badge.svg)](https://github.com/stefanbschneider/mobile-env/actions/workflows/python-publish.yml)
 [![Documentation](https://readthedocs.org/projects/mobile-env/badge/?version=latest)](https://mobile-env.readthedocs.io/en/latest/?badge=latest)
-[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/stefanbschneider/mobile-env/blob/master/examples/tutorial.ipynb)
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/stefanbschneider/mobile-env/blob/master/examples/demo.ipynb)
 
 
 # mobile-env: An Open Environment for Autonomous Coordination in Mobile Networks
@@ -19,14 +19,15 @@ To maximize the QoE of single UEs, the UE intends to connect to as many BSs as p
 However, BSs multiplex resources among connected UEs (e.g. schedule physical resource blocks) and, therefore, UEs compete for limited resources (conflicting goals). 
 To maximize QoE globally, the policy must recognize that (1) the data rate of any connection is governed by the channel (e.g. SNR) between UE and BS and (2) QoE of single UEs not necessarily grows linearly with increasing data rate.
 
-
-**[Try mobile-env on Google Colab: ![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/stefanbschneider/mobile-env/blob/master/examples/tutorial.ipynb)**
-
 <p align="center">
     <img src="https://user-images.githubusercontent.com/36734964/139288123-7732eff2-24d4-4c25-87fd-ac906f261c93.gif" width="65%"/>
     <br>
     <sup><a href="https://thenounproject.com/search/?q=base+station&i=1286474" target="_blank">Base station icon</a> by Clea Doltz from the Noun Project</sup>
 </p>
+
+**[Try mobile-env: ![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/stefanbschneider/mobile-env/blob/master/examples/demo.ipynb)**
+
+Documentation and API: [ReadTheDocs](https://mobile-env.readthedocs.io/en/latest/)
 
 
 ## Installation
@@ -107,14 +108,9 @@ env = gym.make('mobile-small-central-v0', config=config)
 # ...
 ```
 
-## Documentation
-Read the [documentation online](https://mobile-env.readthedocs.io/en/latest/index.html).
 
+## About `mobile-env`
 
-## DeepCoMP
-mobile-env builds on [DeepCoMP](https://github.com/CN-UPB/DeepCoMP) and makes its simulation accessible via an OpenAI Gym interface that is independent of any specific reinforcement learning framework.
-
-## Citing
 
 If you use mobile-env in your work, please cite with:
 
@@ -129,10 +125,22 @@ If you use mobile-env in your work, please cite with:
 }
 ```
 
-mobile-env is based on [DeepCoMP](https://github.com/CN-UPB/DeepCoMP), 
-providing the underlying environment as open, stand-alone platform to be used by others.
-mobile-env is inspired by [highway-env](https://github.com/eleurent/highway-env), which focuses on autonomous driving.
+mobile-env is based on [DeepCoMP](https://github.com/CN-UPB/DeepCoMP), providing the underlying environment as open, stand-alone platform to be used by others.
+
 
 List of repositories, publications, or preprints using `mobile-env` (please open a pull request to add missing entries):
 
 * [DeepCoMP](https://github.com/CN-UPB/DeepCoMP)
+
+
+
+## Contributing
+
+Development: [@stefanbschneider](https://github.com/stefanbschneider) and [@stwerner97](https://github.com/stwerner97/)
+
+
+We happy if you find `mobile-env` useful. If you have feedback or want to report bugs, feel free to [open an issue](https://github.com/stefanbschneider/mobile-env/issues/new).
+
+We also welcome contributions: Whether you implement a new channel model, fix a bug, or just make a minor addition elsewhere, feel free to open a pull request!
+
+
