@@ -1,11 +1,12 @@
 from mobile_env.core.base import MComCore
 from mobile_env.core.entities import BaseStation, UserEquipment
+from mobile_env.core.util import deep_dict_merge
 
 
 class MComSmall(MComCore):
     def __init__(self, config={}):
         # set unspecified parameters to default configuration
-        config = {**self.default_config(), **config}
+        config = deep_dict_merge(self.default_config(), config)
 
         station_pos = [(110, 130), (65, 80), (120, 30)]
         stations = [

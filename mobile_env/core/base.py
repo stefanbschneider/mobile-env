@@ -21,6 +21,7 @@ from mobile_env.core.schedules import ResourceFair
 from mobile_env.core.utilities import BoundedLogUtility
 from mobile_env.core.entities import BaseStation, UserEquipment
 from mobile_env.core.movement import RandomWaypointMovement
+from mobile_env.core.util import deep_dict_merge
 
 
 class MComCore(gym.Env):
@@ -29,7 +30,7 @@ class MComCore(gym.Env):
     def __init__(self, stations, users, config={}):
         super().__init__()
         # set unspecified parameters to default configuration
-        config = {**self.default_config(), **config}
+        config = deep_dict_merge(self.default_config(), config)
         config = self.seeding(config)
 
         self.width, self.height = config["width"], config["height"]

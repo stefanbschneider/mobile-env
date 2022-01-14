@@ -1,6 +1,7 @@
+from typing import Dict
+
 import svgpath2mpl
 import matplotlib
-
 
 BS_SYMBOL = (
     "M31.5,19c0-4.1-3.4-7.5-7.5-7.5s-7.5,3.4-7.5,7.5c0,2.9,1.6,5.4,4,"
@@ -25,3 +26,16 @@ BS_SYMBOL.vertices -= BS_SYMBOL.vertices.mean(axis=0)
 # rotate (otherwise up side down): https://stackoverflow.com/a/48231144/2745116
 transform = matplotlib.transforms.Affine2D().rotate_deg(180)
 BS_SYMBOL = BS_SYMBOL.transformed(transform)
+
+
+def deep_dict_merge(source: Dict, dest: Dict):
+    """Merge dictionaries recursively (i.e. deep merge)."""
+    for key, value in source.items():
+        if isinstance(value, dict):
+            # get node or create one
+            node = dest.setdefault(key, {})
+            deep_dict_merge(value, node)
+        else:
+            dest[key] = value
+
+    return dest
