@@ -15,8 +15,7 @@ class MComSmall(MComCore):
         ]
         num_ues = 5
         ues = [
-            UserEquipment(ue_id, **config["ue"])
-            for ue_id in range(num_ues)
+            UserEquipment(ue_id, **config["ue"]) for ue_id in range(num_ues)
         ]
 
         super().__init__(stations, ues, config)

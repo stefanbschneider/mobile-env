@@ -125,7 +125,9 @@ class OkumuraHata(Channel):
             - 1.56 * np.log10(bs.frequency)
         )
         tmp_1 = (
-            69.55 - ch + 26.16 * np.log10(bs.frequency)
+            69.55
+            - ch
+            + 26.16 * np.log10(bs.frequency)
             - 13.82 * np.log10(bs.height)
         )
         tmp_2 = 44.9 - 6.55 * np.log10(bs.height)
