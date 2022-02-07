@@ -11,14 +11,17 @@ from pygame import Surface
 from matplotlib import cm
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 
+from mobile_env.core import metrics
 from mobile_env.handlers.central import MComCentralHandler
 from mobile_env.core.util import BS_SYMBOL
+from mobile_env.core.logging import Monitor
 from mobile_env.core.arrival import NoDeparture
 from mobile_env.core.channels import OkumuraHata
 from mobile_env.core.schedules import ResourceFair
 from mobile_env.core.utilities import BoundedLogUtility
 from mobile_env.core.entities import BaseStation, UserEquipment
 from mobile_env.core.movement import RandomWaypointMovement
+from mobile_env.core.util import deep_dict_merge
 
 
 class MComCore(gym.Env):
@@ -27,12 +30,13 @@ class MComCore(gym.Env):
     def __init__(self, stations, users, config={}):
         super().__init__()
         # set unspecified parameters to default configuration
-        config = {**self.default_config(), **config}
+        config = deep_dict_merge(self.default_config(), config)
         config = self.seeding(config)
 
         self.width, self.height = config["width"], config["height"]
         self.seed = config["seed"]
         self.reset_rng_episode = config["reset_rng_episode"]
+
         # set up arrival pattern, channel, movement, etc.
         self.arrival = config["arrival"](**config["arrival_params"])
         self.channel = config["channel"](**config["channel_params"])
@@ -83,8 +87,16 @@ class MComCore(gym.Env):
         self.conn_isolines = None
         self.mb_isolines = None
 
-        # tracks performance metrics for the on-going simulation
-        self.metrics = None
+        # add metrics required for visualization & set up monitor
+        config["metrics"]["scalar_metrics"].update(
+            {
+                "number connections": metrics.number_connections,
+                "number connected": metrics.number_connected,
+                "mean utility": metrics.mean_utility,
+                "mean datarate": metrics.mean_datarate,
+            }
+        )
+        self.monitor = Monitor(**config["metrics"])
 
     @classmethod
     def default_config(cls):
@@ -106,15 +118,8 @@ class MComCore(gym.Env):
             "movement": RandomWaypointMovement,
             "utility": BoundedLogUtility,
             "handler": MComCentralHandler,
-
             # default cell config
-            "bs": {
-                "bw": 9e6,
-                "freq": 2500,
-                "tx": 30,
-                "height": 50
-            },
-
+            "bs": {"bw": 9e6, "freq": 2500, "tx": 30, "height": 50},
             # default UE config
             "ue": {
                 "velocity": 1.5,
@@ -129,11 +134,25 @@ class MComCore(gym.Env):
         config.update({"arrival_params": aparams})
         config.update({"channel_params": {}})
         config.update({"scheduler_params": {}})
-        mparams = {"width": width, "height": height,
-                   "reset_rng_episode": False}
+        mparams = {
+            "width": width,
+            "height": height,
+            "reset_rng_episode": False,
+        }
         config.update({"movement_params": mparams})
         uparams = {"lower": -20, "upper": 20, "coeffs": (10, 0, 10)}
         config.update({"utility_params": uparams})
+
+        # set up default configuration for tracked metrics
+        config.update(
+            {
+                "metrics": {
+                    "scalar_metrics": {},
+                    "ue_metrics": {},
+                    "bs_metrics": {},
+                }
+            }
+        )
 
         return config
 
@@ -154,9 +173,8 @@ class MComCore(gym.Env):
 
     def reset(self):
         """Reset environment to starting state."""
-        # reset time & performance metrics
+        # reset time
         self.time = 0.0
-        self.metrics = defaultdict(list)
 
         # initialize RNG or reset (if necessary on episode end)
         if self.reset_rng_episode or self.rng is None:
@@ -191,6 +209,9 @@ class MComCore(gym.Env):
 
         # set time of last UE's departure
         self.max_departure = max(ue.extime for ue in self.users.values())
+
+        # reset episode's results of metrics tracked by the monitor
+        self.monitor.reset()
 
         # check if handler is applicable to mobile scenario
         # NOTE: e.g. fails if the central handler is used,
@@ -246,13 +267,6 @@ class MComCore(gym.Env):
         for ue_id, action in actions.items():
             self.apply_action(action, self.users[ue_id])
 
-        # track total number of (BS, UE) connections
-        num_connections = sum([len(con) for con in self.connections.values()])
-        self.metrics["num_connections"].append(num_connections)
-        # track number of UEs at least connected once
-        ues_connected = len(set.union(set(), *self.connections.values()))
-        self.metrics["ues_connected"].append(ues_connected)
-
         # update connections' data rates after re-scheduling
         self.datarates = {}
         for bs in self.stations.values():
@@ -261,23 +275,11 @@ class MComCore(gym.Env):
 
         # update macro (aggregated) data rates for each UE
         self.macro = self.macro_datarates(self.datarates)
-        datarates = list(self.macro.values())
-        mean_datarate = np.mean(datarates) if self.macro else 0.0
-        self.metrics["mean_datarate"].append(mean_datarate)
 
         # compute utilities from UEs' data rates & log its mean value
         self.utilities = {
             ue: self.utility.utility(self.macro[ue]) for ue in self.active
         }
-
-        # track the average utility of UEs over time
-        # set to lower bound if no connections are active
-        mean_utility = (
-            np.mean(list(self.utilities.values()))
-            if self.utilities
-            else self.utility.lower
-        )
-        self.metrics["mean_utility"].append(mean_utility)
 
         # scale utilities to range [-1, 1] before computing rewards
         self.utilities = {
@@ -287,6 +289,9 @@ class MComCore(gym.Env):
         # compute rewards from utility for each UE
         # method is defined by handler according to strategy pattern
         rewards = self.handler.reward(self)
+
+        # evaluate metrics and update tracked metrics given the core simulation
+        self.monitor.update(self)
 
         # move user equipments around; update positions of UEs
         for ue in self.active:
@@ -314,6 +319,7 @@ class MComCore(gym.Env):
 
         # update internal time of environment
         self.time += 1
+
         # check whether episode is done & close the environment
         if self.done and self.window:
             self.close()
@@ -327,6 +333,9 @@ class MComCore(gym.Env):
         # NOTE: compute observations after proceeding in time (may skip ahead)
         observation = self.handler.observation(self)
         info = self.handler.info(self)
+
+        # store latest monitored results in `info` dictionary
+        info = {**info, **self.monitor.info()}
 
         return observation, rewards, self.done, info
 
@@ -434,6 +443,7 @@ class MComCore(gym.Env):
                 if self.check_connectivity(bs, ue):
                     return len(self.connections[bs])
                 return 0.0
+
             stations_connected = [num_connected(bs) for bs in stations]
 
             # normalize by the max. number of connections
@@ -586,10 +596,17 @@ class MComCore(gym.Env):
             utility = self.utility.unscale(utility)
             color = colormap(unorm(utility))
 
-            ax.scatter(ue.point.x, ue.point.y,
-                       s=200, zorder=2, color=color, marker='o')
-            ax.annotate(ue.ue_id, xy=(ue.point.x, ue.point.y),
-                        ha='center', va='center')
+            ax.scatter(
+                ue.point.x,
+                ue.point.y,
+                s=200,
+                zorder=2,
+                color=color,
+                marker="o",
+            )
+            ax.annotate(
+                ue.ue_id, xy=(ue.point.x, ue.point.y), ha="center", va="center"
+            )
 
         for bs in self.stations.values():
             # plot BS symbol and annonate by its BS ID
@@ -648,11 +665,13 @@ class MComCore(gym.Env):
         ax.set_ylim([0, self.height])
 
     def render_dashboard(self, ax) -> None:
+        mean_utilities = self.monitor.scalar_results["mean utility"]
+        mean_utility = mean_utilities[-1]
+        total_mean_utility = np.mean(mean_utilities)
 
-        mean_utility = self.metrics["mean_utility"][-1]
-        total_mean_utility = np.mean(self.metrics["mean_utility"])
-        mean_datarate = self.metrics["mean_datarate"][-1]
-        total_mean_datarate = np.mean(self.metrics["mean_datarate"])
+        mean_datarates = self.monitor.scalar_results["mean datarate"]
+        mean_datarate = mean_datarates[-1]
+        total_mean_datarate = np.mean(mean_datarates)
 
         # remove simulation axis's ticks and spines
         ax.get_xaxis().set_visible(False)
@@ -684,7 +703,7 @@ class MComCore(gym.Env):
 
     def render_mean_utility(self, ax) -> None:
         time = np.arange(self.time)
-        mean_utility = self.metrics["mean_utility"]
+        mean_utility = self.monitor.scalar_results["mean utility"]
         ax.plot(time, mean_utility, linewidth=1, color="black")
 
         ax.set_ylabel("Avg. Utility")
@@ -693,7 +712,7 @@ class MComCore(gym.Env):
 
     def render_ues_connected(self, ax) -> None:
         time = np.arange(self.time)
-        ues_connected = self.metrics["ues_connected"]
+        ues_connected = self.monitor.scalar_results["number connected"]
         ax.plot(time, ues_connected, linewidth=1, color="black")
 
         ax.set_xlabel("Time")

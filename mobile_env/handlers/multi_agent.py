@@ -9,7 +9,11 @@ from mobile_env.handlers.handler import Handler
 
 class MComMAHandler(Handler):
     features = [
-        "connections", "snrs", "utility", "bcast", "stations_connected"
+        "connections",
+        "snrs",
+        "utility",
+        "bcast",
+        "stations_connected",
     ]
 
     @classmethod
@@ -29,9 +33,7 @@ class MComMAHandler(Handler):
     def observation_space(cls, env) -> spaces.Dict:
         size = cls.ue_obs_size(env)
         space = {
-            ue_id: spaces.Box(
-                low=-1, high=1, shape=(size,), dtype=np.float32
-            )
+            ue_id: spaces.Box(low=-1, high=1, shape=(size,), dtype=np.float32)
             for ue_id in env.users
         }
 
