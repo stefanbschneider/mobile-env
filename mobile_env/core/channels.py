@@ -1,8 +1,9 @@
+from typing import Dict, Tuple
 from abc import abstractmethod
 
 import numpy as np
 
-from mobile_env.core.entities import UserEquipment
+from mobile_env.core.entities import BaseStation, UserEquipment
 
 
 EPSILON = 1e-16
@@ -16,17 +17,24 @@ class Channel:
         pass
 
     @abstractmethod
-    def power_loss(self, bs, ue):
+    def power_loss(self, bs: BaseStation, ue: UserEquipment) -> float:
         """Calculate power loss for transmission between BS and UE."""
         pass
 
-    def snr(self, bs, ue):
+    def snr(self, bs: BaseStation, ue: UserEquipment):
         """Calculate SNR for transmission between BS and UE."""
         loss = self.power_loss(bs, ue)
         power = 10 ** ((bs.tx_power - loss) / 10)
         return power / ue.noise
 
-    def isoline(self, bs, ue_config, map_bounds, dthresh, num=32):
+    def isoline(
+        self,
+        bs: BaseStation,
+        ue_config: Dict,
+        map_bounds: Tuple,
+        dthresh: float,
+        num: int = 32,
+    ):
         """Isoline where UEs receive at least `dthres` max. data."""
         width, height = map_bounds
 
@@ -63,7 +71,7 @@ class Channel:
         return xs, ys
 
     @classmethod
-    def datarate(cls, bs, ue, snr):
+    def datarate(cls, bs: BaseStation, ue: UserEquipment, snr: float):
         """Calculate max. data rate for transmission between BS and UE."""
         if snr > ue.snr_threshold:
             return bs.bw * np.log2(1 + snr)
@@ -71,7 +79,9 @@ class Channel:
         return 0.0
 
     @classmethod
-    def boundary_collison(cls, theta, x0, y0, width, height):
+    def boundary_collison(
+        cls, theta: float, x0: float, y0: float, width: float, height: float
+    ) -> Tuple:
         """Find point on map boundaries with angle theta to BS."""
         # collision with right boundary of map rectangle
         rgt_x1, rgt_y1 = width, np.tan(theta) * (width - x0) + y0
@@ -116,7 +126,7 @@ class Channel:
 
 
 class OkumuraHata(Channel):
-    def power_loss(self, bs, ue):
+    def power_loss(self, bs: BaseStation, ue: UserEquipment):
         distance = bs.point.distance(ue.point)
 
         ch = (

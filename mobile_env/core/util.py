@@ -28,7 +28,7 @@ transform = matplotlib.transforms.Affine2D().rotate_deg(180)
 BS_SYMBOL = BS_SYMBOL.transformed(transform)
 
 
-def deep_dict_merge(source: Dict, dest: Dict):
+def deep_dict_merge(dest: Dict, source: Dict):
     """Merge dictionaries recursively (i.e. deep merge)."""
     for key, value in source.items():
         if isinstance(value, dict):
