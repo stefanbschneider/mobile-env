@@ -384,7 +384,7 @@ class MComCore(gym.Env):
 
         return util
 
-    def bs_isolines(self, drate):
+    def bs_isolines(self, drate: float) -> Dict:
         """Isolines where UEs could still receive `drate` max. data rate."""
         isolines = {}
         config = self.default_config()["ue"]
@@ -405,7 +405,7 @@ class MComCore(gym.Env):
         # compute average utility of each basestation's connections
         bs_utilities = self.station_utilities()
 
-        def ue_features(ue):
+        def ue_features(ue: UserEquipment):
             """Define local observation vector for UEs."""
             # (1) observation of current connections
             # encodes UE's connections as one-hot vector

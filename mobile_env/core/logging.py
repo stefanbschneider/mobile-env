@@ -61,8 +61,8 @@ class Monitor:
     def load_results(self):
         """Outputs results of tracked metrics as data frames."""
         # load scalar results with index (metric; time)
-        scalar_results = pd.DataFrame(self.scalar_results).transpose()
-        scalar_results.index.names = ["metric"]
+        scalar_results = pd.DataFrame(self.scalar_results)
+        scalar_results.index.names = ["Time Step"]
 
         # load UE results with index (metric, UE ID; time)
         ue_results = {
@@ -71,7 +71,14 @@ class Monitor:
             for ue_id in set().union(*entries)
         }
         ue_results = pd.DataFrame(ue_results).transpose()
-        ue_results.index.names = ["metric", "UE ID"]
+        ue_results.index.names = ["Metric", "UE ID"]
+        # change data frame format to align time axis along rows
+        ue_results = ue_results.stack()
+        ue_results.index.names = ["Metric", "UE ID", "Time Step"]
+        ue_results = ue_results.reorder_levels(
+            ["Time Step", "UE ID", "Metric"]
+        )
+        ue_results = ue_results.unstack()
 
         # load BS results with index (metric, BS ID; time)
         bs_results = {
@@ -80,7 +87,14 @@ class Monitor:
             for bs_id in set().union(*entries)
         }
         bs_results = pd.DataFrame(bs_results).transpose()
-        bs_results.index.names = ["metric", "BS ID"]
+        bs_results.index.names = ["Metric", "BS ID"]
+        # change data frame format to align time axis along rows
+        bs_results = bs_results.stack()
+        bs_results.index.names = ["Metric", "BS ID", "Time Step"]
+        bs_results = bs_results.reorder_levels(
+            ["Time Step", "BS ID", "Metric"]
+        )
+        bs_results = bs_results.unstack()
 
         return scalar_results, ue_results, bs_results
 
