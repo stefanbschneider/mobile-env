@@ -30,6 +30,27 @@ To maximize QoE globally, the policy must recognize that (1) the data rate of an
 Documentation and API: [ReadTheDocs](https://mobile-env.readthedocs.io/en/latest/)
 
 
+## Citation
+
+
+If you use `mobile-env` in your work, please cite our paper ([author PDF](https://ris.uni-paderborn.de/download/30236/30237/author_version.pdf)):
+
+```
+@inproceedings{schneider2022mobileenv,
+  author = {Schneider, Stefan and Werner, Stefan and Khalili, Ramin and Hecker, Artur and Karl, Holger},
+  title = {mobile-env: An Open Platform for Reinforcement Learning in Wireless Mobile Networks},
+  booktitle={Network Operations and Management Symposium (NOMS)},
+  year = {2022},
+  publisher = {IEEE/IFIP},
+}
+```
+
+mobile-env is based on the underlying environment using in [DeepCoMP](https://github.com/CN-UPB/DeepCoMP), which is a combination of reinforcement learning approaches for dynamic multi-cell selection.
+mobile-env provides this underlying environment as open, stand-alone environment.
+
+If you are using `movile-env`, please let us know and we are happy to link to your project from the readme.
+
+
 ## Installation
 
 ### From PyPI (Recommended)
@@ -109,37 +130,12 @@ env = gym.make('mobile-small-central-v0', config=config)
 ```
 
 
-## About `mobile-env`
-
-
-If you use mobile-env in your work, please cite with:
-
-```
-@misc{mobile-env,
-  author = {Schneider, Stefan and Werner, Stefan and Karl, Holger},
-  title = {An Open Environment for Autonomous Coordination in Mobile Networks},
-  year = {2021},
-  publisher = {GitHub},
-  journal = {GitHub Repository},
-  howpublished = {\url{https://github.com/stefanbschneider/mobile-env}},
-}
-```
-
-mobile-env is based on [DeepCoMP](https://github.com/CN-UPB/DeepCoMP), providing the underlying environment as open, stand-alone platform to be used by others.
-
-
-List of repositories, publications, or preprints using `mobile-env` (please open a pull request to add missing entries):
-
-* [DeepCoMP](https://github.com/CN-UPB/DeepCoMP)
-
-
-
 ## Contributing
 
 Development: [@stefanbschneider](https://github.com/stefanbschneider) and [@stwerner97](https://github.com/stwerner97/)
 
 
-We happy if you find `mobile-env` useful. If you have feedback or want to report bugs, feel free to [open an issue](https://github.com/stefanbschneider/mobile-env/issues/new).
+We happy if you find `mobile-env` useful. If you have feedback or want to report bugs, feel free to [open an issue](https://github.com/stefanbschneider/mobile-env/issues/new). Also, we are happy to link to your projects if you use `mobile-env`.
 
 We also welcome contributions: Whether you implement a new channel model, fix a bug, or just make a minor addition elsewhere, feel free to open a pull request!
 
