@@ -11,7 +11,7 @@ with open(os.path.join(this_directory, "README.md"), encoding="utf-8") as f:
 requirements = [
     "gym>=0.19.0",
     "matplotlib==3.5.0",
-    "numpy==1.21.4",
+    "numpy==1.22.0",
     "pygame==2.1.0",
     "shapely==1.8.0",
     "svgpath2mpl==1.0.0",
