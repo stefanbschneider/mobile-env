@@ -48,8 +48,6 @@ If you use `mobile-env` in your work, please cite our paper ([author PDF](https:
 mobile-env is based on the underlying environment using in [DeepCoMP](https://github.com/CN-UPB/DeepCoMP), which is a combination of reinforcement learning approaches for dynamic multi-cell selection.
 mobile-env provides this underlying environment as open, stand-alone environment.
 
-If you are using `movile-env`, please let us know and we are happy to link to your project from the readme.
-
 
 ## Installation
 
@@ -128,6 +126,13 @@ config['channel_params'].update({'gamma': 2.0})
 env = gym.make('mobile-small-central-v0', config=config)
 # ...
 ```
+
+## Projects Using mobile-env
+
+If you are using `movile-env`, please let us know and we are happy to link to your project from the readme. You can also open a pull request yourself.
+
+* [Mohammadreza Kouchaki and Vuk Marojevic, "Actor-Critic Network for O-RAN Resource Allocation: xApp Design, Deployment, and Analysis", 2022](https://arxiv.org/abs/2210.04604)
+* [Stefan Schneider, Ramin Khalili, Artur Hecker, Holger Karl, "DeepCoMP: Self-Learning Dynamic Multi-Cell Selection for Coordinated Multipoint (CoMP)", 2021](https://github.com/CN-UPB/DeepCoMP)
 
 
 ## Contributing
