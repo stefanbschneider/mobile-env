@@ -34,7 +34,7 @@ def deep_dict_merge(dest: Dict, source: Dict):
         if isinstance(value, dict):
             # get node or create one
             node = dest.setdefault(key, {})
-            deep_dict_merge(value, node)
+            deep_dict_merge(node, value)
         else:
             dest[key] = value
 
