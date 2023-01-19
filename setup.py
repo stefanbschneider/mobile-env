@@ -15,6 +15,7 @@ requirements = [
     "pygame==2.1.0",
     "shapely==1.8.0",
     "svgpath2mpl==1.0.0",
+    "Jinja2<3.1",
 ]
 
 setup(
