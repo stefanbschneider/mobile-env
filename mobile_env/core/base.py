@@ -26,12 +26,12 @@ from mobile_env.core.util import deep_dict_merge
 
 class MComCore(gym.Env):
     NOOP_ACTION = 0
+    metadata = {"render_modes": ["rgb_array", "human"]}
 
     def __init__(self, stations, users, config={}, render_mode=None):
         super().__init__()
 
         self.render_mode = render_mode
-        self.metadata["render_modes"] = ["rgb_array", "human"]
         assert render_mode is None or render_mode in self.metadata["render_modes"]
 
         # set unspecified parameters to default configuration
