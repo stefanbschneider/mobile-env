@@ -1,7 +1,7 @@
 from typing import Dict, Tuple
 
 import numpy as np
-from gym import spaces
+from gymnasium import spaces
 
 from mobile_env.handlers.handler import Handler
 

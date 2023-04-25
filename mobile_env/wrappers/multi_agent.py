@@ -1,6 +1,6 @@
 from typing import Tuple
 
-import gym
+import gymnasium as gym
 import numpy as np
 from ray.rllib.env.multi_agent_env import MultiAgentEnv
 from ray.rllib.utils.typing import MultiAgentDict
@@ -29,32 +29,36 @@ class RLlibMAWrapper(MultiAgentEnv):
         # what UEs were active in the previous step
         self.prev_step_ues = None
 
-    def reset(self) -> MultiAgentDict:
-        obs = self.env.reset()
+    def reset(self, *, seed=None, options=None) -> MultiAgentDict:
+        obs, info = self.env.reset(seed=seed, options=options)
         self.prev_step_ues = set(obs.keys())
-        return obs
+        return obs, info
 
     def step(
         self, action_dict: MultiAgentDict
     ) -> Tuple[MultiAgentDict, MultiAgentDict, MultiAgentDict, MultiAgentDict]:
-        obs, rews, done, infos = self.env.step(action_dict)
+        obs, rews, terminated, truncated, infos = self.env.step(action_dict)
 
-        # UEs that are not active after `step()` are done
-        # NOTE: `dones` keys are keys of previous observation dictionary
-        dones = self.prev_step_ues - set([ue.ue_id for ue in self.env.active])
-        dones = {
-            ue_id: True if ue_id in dones else False
+        # UEs that are not active after `step()` are done (here: truncated)
+        # NOTE: `truncateds` keys are keys of previous observation dictionary
+        inactive_ues = self.prev_step_ues - set([ue.ue_id for ue in self.env.active])
+        truncateds = {
+            ue_id: True if ue_id in inactive_ues else False
             for ue_id in self.prev_step_ues
         }
-        dones["__all__"] = done
+        truncateds["__all__"] = truncated
+        # Terminated is always False since there is no particular terminal goal to reach.
+        assert not terminated, "There is no natural episode termination. terminated should be False."
+        terminateds = {ue_id: False for ue_id in self.prev_step_ues}
+        terminateds["__all__"] = False
 
         # update keys of previous observation dictionary
         self.prev_step_ues = set(obs.keys())
 
-        return obs, rews, dones, infos
+        return obs, rews, terminateds, truncateds, infos
 
-    def render(self, mode="human") -> None:
-        return self.env.render(mode)
+    def render(self) -> None:
+        return self.env.render()
 
 
 class PettingZooWrapper:

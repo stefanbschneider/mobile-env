@@ -1,6 +1,6 @@
 import itertools
 
-import gym
+import gymnasium as gym
 
 from mobile_env.scenarios.small import MComSmall
 from mobile_env.scenarios.medium import MComMedium

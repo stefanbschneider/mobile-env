@@ -1,8 +1,7 @@
 from typing import Dict
 
-import gym
+import gymnasium as gym
 import numpy as np
-from gym import spaces
 
 from mobile_env.handlers.handler import Handler
 
@@ -21,8 +20,8 @@ class MComMAHandler(Handler):
         return sum(env.feature_sizes[ftr] for ftr in cls.features)
 
     @classmethod
-    def action_space(cls, env) -> spaces.Dict:
-        return spaces.Dict(
+    def action_space(cls, env) -> gym.spaces.Dict:
+        return gym.spaces.Dict(
             {
                 ue.ue_id: gym.spaces.Discrete(env.NUM_STATIONS + 1)
                 for ue in env.users.values()
@@ -30,14 +29,14 @@ class MComMAHandler(Handler):
         )
 
     @classmethod
-    def observation_space(cls, env) -> spaces.Dict:
+    def observation_space(cls, env) -> gym.spaces.Dict:
         size = cls.ue_obs_size(env)
         space = {
-            ue_id: spaces.Box(low=-1, high=1, shape=(size,), dtype=np.float32)
+            ue_id: gym.spaces.Box(low=-1, high=1, shape=(size,), dtype=np.float32)
             for ue_id in env.users
         }
 
-        return spaces.Dict(space)
+        return gym.spaces.Dict(space)
 
     @classmethod
     def reward(cls, env):

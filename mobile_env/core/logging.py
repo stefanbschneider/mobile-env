@@ -100,6 +100,11 @@ class Monitor:
 
     def info(self):
         """Outputs the latest results as a dictionary."""
+
+        # Return empty infos if there are no scalar results.
+        if any(len(results) == 0 for results in self.scalar_results.values()):
+            return {}
+        
         scalar_info = {
             name: values[-1] for name, values in self.scalar_results.items()
         }

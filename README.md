@@ -77,16 +77,17 @@ For dependencies for building docs, install the requirements in `docs`.
 ## Example Usage
 
 ```python
-import gym
+import gymnasium as gym
 import mobile_env
 
 env = gym.make("mobile-medium-central-v0")
-obs = env.reset()
+obs, info = env.reset()
 done = False
 
 while not done:
     action = ... # Your agent code here
-    obs, reward, done, info = env.step(action)
+    obs, reward, terminated, truncated, info = env.step(action)
+    done = terminated or truncated
     env.render()
 ```
 
@@ -96,7 +97,7 @@ mobile-env supports custom channel models, movement patterns, arrival & departur
 For example, replacing the default [Okumura–Hata](https://en.wikipedia.org/wiki/Hata_model) channel model by a (simplified) path loss model can be as easy as this:
 
 ```python
-import gym
+import gymnasium as gym
 import numpy as np
 from mobile_env.core.base import MComCore
 from mobile_env.core.channel import Channel

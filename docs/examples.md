@@ -12,7 +12,7 @@ We provide an in-depth example of mobile-env's usage on Google Colab! The notebo
 `mobile-env` follows the OpenAI Gym interface.
 Here is an example of how mobile-env's environments can be created:
 ```python
-import gym
+import gymnasium as gym
 import mobile_env
 
 # small environment; centralized control 
@@ -26,11 +26,12 @@ env = gym.make('mobile-large-ma-v0')
 ...
 
 # then run the environment
-obs = env.reset()
+obs, info = env.reset()
 done = False
 
 while not done:
     action = ... # Your agent code here
-    obs, reward, done, info = env.step(action)
+    obs, reward, terminated, truncated, info = env.step(action)
+    done = terminated or truncated
     env.render()
 ```

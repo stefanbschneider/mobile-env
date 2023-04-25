@@ -2,7 +2,7 @@ import string
 from typing import List, Tuple, Dict, Set
 from collections import Counter, defaultdict
 
-import gym
+import gymnasium as gym
 import pygame
 import numpy as np
 import matplotlib.pyplot as plt
@@ -27,8 +27,13 @@ from mobile_env.core.util import deep_dict_merge
 class MComCore(gym.Env):
     NOOP_ACTION = 0
 
-    def __init__(self, stations, users, config={}):
+    def __init__(self, stations, users, config={}, render_mode=None):
         super().__init__()
+
+        self.render_mode = render_mode
+        self.metadata["render_modes"] = ["rgb_array", "human"]
+        assert render_mode is None or render_mode in self.metadata["render_modes"]
+
         # set unspecified parameters to default configuration
         config = deep_dict_merge(self.default_config(), config)
         config = self.seeding(config)
@@ -171,14 +176,24 @@ class MComCore(gym.Env):
 
         return config
 
-    def reset(self):
-        """Reset environment to starting state."""
+    def reset(self, *, seed=None, options=None):
+        """Reset environment to starting state. Return the initial observation and info."""
+        super().reset(seed=seed)
+
         # reset time
         self.time = 0.0
+
+        # set seed
+        if seed is not None:
+            self.seeding({"seed": seed})
 
         # initialize RNG or reset (if necessary on episode end)
         if self.reset_rng_episode or self.rng is None:
             self.rng = np.random.default_rng(self.seed)
+
+        # extra options currently not supported
+        if options is not None:
+            raise NotImplementedError("Passing extra options on env.reset() is currently not implemented.")
 
         # reset state kept by arrival pattern, channel, scheduler, etc.
         self.arrival.reset()
@@ -218,7 +233,12 @@ class MComCore(gym.Env):
         # although the number of UEs changes
         self.handler.check(self)
 
-        return self.handler.observation(self)
+        # info
+        info = self.handler.info(self)
+        # store latest monitored results in `info` dictionary
+        info = {**info, **self.monitor.info()}
+
+        return self.handler.observation(self), info
 
     def apply_action(self, action: int, ue: UserEquipment) -> None:
         """Connect or disconnect `ue` to/from basestation `action`."""
@@ -255,7 +275,7 @@ class MComCore(gym.Env):
         self.connections.update(connections)
 
     def step(self, actions: Dict[int, int]):
-        assert not self.done, "step() called on already terminated episode"
+        assert not self.time_is_up, "step() called on already terminated episode"
 
         # apply handler to transform actions to expected shape
         actions = self.handler.action(self, actions)
@@ -321,11 +341,11 @@ class MComCore(gym.Env):
         self.time += 1
 
         # check whether episode is done & close the environment
-        if self.done and self.window:
+        if self.time_is_up and self.window:
             self.close()
 
         # do not invoke next step on policies before at least one UE is active
-        if not self.active and not self.done:
+        if not self.active and not self.time_is_up:
             return self.step({})
 
         # compute observations for next step and information
@@ -337,11 +357,16 @@ class MComCore(gym.Env):
         # store latest monitored results in `info` dictionary
         info = {**info, **self.monitor.info()}
 
-        return observation, rewards, self.done, info
+        # there is not natural episode termination, just limited time
+        # hence, terminated is always False and truncated is True once time is up
+        terminated = False
+        truncated = self.time_is_up
+
+        return observation, rewards, terminated, truncated, info
 
     @property
-    def done(self):
-        """Episode is done after max. time steps or once last UE departed."""
+    def time_is_up(self):
+        """Return true after max. time steps or once last UE departed."""
         return self.time >= min(self.EP_MAX_TIME, self.max_departure)
 
     def macro_datarates(self, datarates):
@@ -486,7 +511,9 @@ class MComCore(gym.Env):
 
         return obs
 
-    def render(self, mode="human") -> None:
+    def render(self) -> None:
+        mode = self.render_mode
+
         # do not continue rendering once environment has been closed
         if self.closed:
             return
