@@ -163,6 +163,8 @@ class MComCore(gym.Env):
 
     @classmethod
     def seeding(cls, config):
+        """Rotate the seed for the different random processes. Return config with updated seeds."""
+        
         seed = config["seed"]
         keys = [
             "arrival_params",
@@ -172,6 +174,8 @@ class MComCore(gym.Env):
             "utility_params",
         ]
         for num, key in enumerate(keys):
+            if key not in config:
+                config[key] = {}
             config[key]["seed"] = seed + num + 1
 
         return config
