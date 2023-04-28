@@ -1,5 +1,5 @@
-from typing import Dict, Tuple
 from abc import abstractmethod
+from typing import Dict, Tuple
 
 import numpy as np
 

@@ -1,5 +1,12 @@
 # extra requirements for testing
-flake8==4.0.1
-pytest==6.2.5
-stable-baselines3==1.3.0
-ray[rllib]==1.8.0
+pre-commit
+# limit importlib to avoid flake8 error: https://stackoverflow.com/a/73932581/2745116
+importlib-metadata<5.0
+flake8
+pytest
+# Older stable baselines versions do not support gymnasium
+#stable-baselines3>=2.0.0
+sb3_contrib>=2.0.0a1
+# Only Ray 2.3+ supports gymnasium
+# TODO: enable ray later; conflicts with sb3; not needed for tests
+#ray[rllib]>=2.3.0

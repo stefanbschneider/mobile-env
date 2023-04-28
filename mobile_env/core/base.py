@@ -1,34 +1,38 @@
 import string
-from typing import List, Tuple, Dict, Set
 from collections import Counter, defaultdict
+from typing import Dict, List, Set, Tuple
 
-import gym
-import pygame
-import numpy as np
-import matplotlib.pyplot as plt
+import gymnasium as gym
 import matplotlib.patheffects as pe
-from pygame import Surface
+import matplotlib.pyplot as plt
+import numpy as np
+import pygame
 from matplotlib import cm
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+from pygame import Surface
 
 from mobile_env.core import metrics
-from mobile_env.handlers.central import MComCentralHandler
-from mobile_env.core.util import BS_SYMBOL
-from mobile_env.core.logging import Monitor
 from mobile_env.core.arrival import NoDeparture
 from mobile_env.core.channels import OkumuraHata
-from mobile_env.core.schedules import ResourceFair
-from mobile_env.core.utilities import BoundedLogUtility
 from mobile_env.core.entities import BaseStation, UserEquipment
+from mobile_env.core.logging import Monitor
 from mobile_env.core.movement import RandomWaypointMovement
-from mobile_env.core.util import deep_dict_merge
+from mobile_env.core.schedules import ResourceFair
+from mobile_env.core.util import BS_SYMBOL, deep_dict_merge
+from mobile_env.core.utilities import BoundedLogUtility
+from mobile_env.handlers.central import MComCentralHandler
 
 
 class MComCore(gym.Env):
     NOOP_ACTION = 0
+    metadata = {"render_modes": ["rgb_array", "human"]}
 
-    def __init__(self, stations, users, config={}):
+    def __init__(self, stations, users, config={}, render_mode=None):
         super().__init__()
+
+        self.render_mode = render_mode
+        assert render_mode in self.metadata["render_modes"] + [None]
+
         # set unspecified parameters to default configuration
         config = deep_dict_merge(self.default_config(), config)
         config = self.seeding(config)
@@ -158,6 +162,8 @@ class MComCore(gym.Env):
 
     @classmethod
     def seeding(cls, config):
+        """Return config with updated and rotated seeds."""
+
         seed = config["seed"]
         keys = [
             "arrival_params",
@@ -167,18 +173,32 @@ class MComCore(gym.Env):
             "utility_params",
         ]
         for num, key in enumerate(keys):
+            if key not in config:
+                config[key] = {}
             config[key]["seed"] = seed + num + 1
 
         return config
 
-    def reset(self):
-        """Reset environment to starting state."""
+    def reset(self, *, seed=None, options=None):
+        """Reset env to starting state. Return the initial obs and info."""
+        super().reset(seed=seed)
+
         # reset time
         self.time = 0.0
+
+        # set seed
+        if seed is not None:
+            self.seeding({"seed": seed})
 
         # initialize RNG or reset (if necessary on episode end)
         if self.reset_rng_episode or self.rng is None:
             self.rng = np.random.default_rng(self.seed)
+
+        # extra options currently not supported
+        if options is not None:
+            raise NotImplementedError(
+                "Passing extra options on env.reset() is not supported."
+            )
 
         # reset state kept by arrival pattern, channel, scheduler, etc.
         self.arrival.reset()
@@ -218,7 +238,12 @@ class MComCore(gym.Env):
         # although the number of UEs changes
         self.handler.check(self)
 
-        return self.handler.observation(self)
+        # info
+        info = self.handler.info(self)
+        # store latest monitored results in `info` dictionary
+        info = {**info, **self.monitor.info()}
+
+        return self.handler.observation(self), info
 
     def apply_action(self, action: int, ue: UserEquipment) -> None:
         """Connect or disconnect `ue` to/from basestation `action`."""
@@ -255,7 +280,7 @@ class MComCore(gym.Env):
         self.connections.update(connections)
 
     def step(self, actions: Dict[int, int]):
-        assert not self.done, "step() called on already terminated episode"
+        assert not self.time_is_up, "step() called on terminated episode"
 
         # apply handler to transform actions to expected shape
         actions = self.handler.action(self, actions)
@@ -321,11 +346,11 @@ class MComCore(gym.Env):
         self.time += 1
 
         # check whether episode is done & close the environment
-        if self.done and self.window:
+        if self.time_is_up and self.window:
             self.close()
 
         # do not invoke next step on policies before at least one UE is active
-        if not self.active and not self.done:
+        if not self.active and not self.time_is_up:
             return self.step({})
 
         # compute observations for next step and information
@@ -337,11 +362,16 @@ class MComCore(gym.Env):
         # store latest monitored results in `info` dictionary
         info = {**info, **self.monitor.info()}
 
-        return observation, rewards, self.done, info
+        # there is not natural episode termination, just limited time
+        # terminated is always False and truncated is True once time is up
+        terminated = False
+        truncated = self.time_is_up
+
+        return observation, rewards, terminated, truncated, info
 
     @property
-    def done(self):
-        """Episode is done after max. time steps or once last UE departed."""
+    def time_is_up(self):
+        """Return true after max. time steps or once last UE departed."""
         return self.time >= min(self.EP_MAX_TIME, self.max_departure)
 
     def macro_datarates(self, datarates):
@@ -486,7 +516,9 @@ class MComCore(gym.Env):
 
         return obs
 
-    def render(self, mode="human") -> None:
+    def render(self) -> None:
+        mode = self.render_mode
+
         # do not continue rendering once environment has been closed
         if self.closed:
             return
@@ -604,9 +636,7 @@ class MComCore(gym.Env):
                 color=color,
                 marker="o",
             )
-            ax.annotate(
-                ue.ue_id, xy=(ue.point.x, ue.point.y), ha="center", va="center"
-            )
+            ax.annotate(ue.ue_id, xy=(ue.point.x, ue.point.y), ha="center", va="center")
 
         for bs in self.stations.values():
             # plot BS symbol and annonate by its BS ID

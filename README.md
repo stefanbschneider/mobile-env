@@ -1,12 +1,13 @@
 [![CI](https://github.com/stefanbschneider/mobile-env/actions/workflows/python-package.yml/badge.svg)](https://github.com/stefanbschneider/mobile-env/actions/workflows/python-package.yml)
 [![PyPI](https://github.com/stefanbschneider/mobile-env/actions/workflows/python-publish.yml/badge.svg)](https://github.com/stefanbschneider/mobile-env/actions/workflows/python-publish.yml)
 [![Documentation](https://readthedocs.org/projects/mobile-env/badge/?version=latest)](https://mobile-env.readthedocs.io/en/latest/?badge=latest)
+[![Code Style: Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/stefanbschneider/mobile-env/blob/master/examples/demo.ipynb)
 
 
 # mobile-env: An Open Environment for Autonomous Coordination in Mobile Networks
 
-mobile-env is an open, minimalist OpenAI Gym environment for training and evaluating coordination algorithms in wireless mobile networks. 
+mobile-env is an open, minimalist OpenAI Gym environment for training and evaluating coordination algorithms in wireless mobile networks.
 The environment allows modeling users moving around an area and can connect to one or multiple base stations.
 Using the Gym interface, the environment can be used with any reinforcement learning framework (e.g., stable-baselines or Ray RLlib) or any custom (even non-RL) coordination approach.
 The environment is highly configurable and can be easily extended (e.g., regarding users, movement patterns, channel models, etc.).
@@ -14,9 +15,9 @@ The environment is highly configurable and can be easily extended (e.g., regardi
 mobile-env supports multi-agent and centralized reinforcement learning policies. It provides various choices for rewards and observations. mobile-env is also easily extendable, so that anyone may add another channel models (e.g. path loss), movement patterns, utility functions, etc.
 
 As an example, mobile-env can be used to study multi-cell selection in coordinated multipoint.
-Here, it must be decided what connections should be established among user equipments (UEs) and base stations (BSs) in order to maximize Quality of Experience (QoE) globally. 
-To maximize the QoE of single UEs, the UE intends to connect to as many BSs as possible, which yields higher (macro) data rates. 
-However, BSs multiplex resources among connected UEs (e.g. schedule physical resource blocks) and, therefore, UEs compete for limited resources (conflicting goals). 
+Here, it must be decided what connections should be established among user equipments (UEs) and base stations (BSs) in order to maximize Quality of Experience (QoE) globally.
+To maximize the QoE of single UEs, the UE intends to connect to as many BSs as possible, which yields higher (macro) data rates.
+However, BSs multiplex resources among connected UEs (e.g. schedule physical resource blocks) and, therefore, UEs compete for limited resources (conflicting goals).
 To maximize QoE globally, the policy must recognize that (1) the data rate of any connection is governed by the channel (e.g. SNR) between UE and BS and (2) QoE of single UEs not necessarily grows linearly with increasing data rate.
 
 <p align="center">
@@ -77,26 +78,27 @@ For dependencies for building docs, install the requirements in `docs`.
 ## Example Usage
 
 ```python
-import gym
+import gymnasium as gym
 import mobile_env
 
 env = gym.make("mobile-medium-central-v0")
-obs = env.reset()
+obs, info = env.reset()
 done = False
 
 while not done:
     action = ... # Your agent code here
-    obs, reward, done, info = env.step(action)
+    obs, reward, terminated, truncated, info = env.step(action)
+    done = terminated or truncated
     env.render()
 ```
 
 ## Customization
 
-mobile-env supports custom channel models, movement patterns, arrival & departure models, resource multiplexing schemes and utility functions. 
+mobile-env supports custom channel models, movement patterns, arrival & departure models, resource multiplexing schemes and utility functions.
 For example, replacing the default [Okumura–Hata](https://en.wikipedia.org/wiki/Hata_model) channel model by a (simplified) path loss model can be as easy as this:
 
 ```python
-import gym
+import gymnasium as gym
 import numpy as np
 from mobile_env.core.base import MComCore
 from mobile_env.core.channel import Channel
@@ -115,7 +117,7 @@ class PathLoss(Channel):
         return loss
 
 
-# replace default channel model in configuration 
+# replace default channel model in configuration
 config = MComCore.default_config()
 config['channel'] = PathLoss
 
@@ -143,5 +145,3 @@ Development: [@stefanbschneider](https://github.com/stefanbschneider) and [@stwe
 We happy if you find `mobile-env` useful. If you have feedback or want to report bugs, feel free to [open an issue](https://github.com/stefanbschneider/mobile-env/issues/new). Also, we are happy to link to your projects if you use `mobile-env`.
 
 We also welcome contributions: Whether you implement a new channel model, fix a bug, or just make a minor addition elsewhere, feel free to open a pull request!
-
-

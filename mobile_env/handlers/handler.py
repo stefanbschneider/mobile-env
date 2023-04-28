@@ -1,7 +1,7 @@
 import abc
 from typing import Dict
 
-from gym.spaces.space import Space
+from gymnasium.spaces.space import Space
 
 
 class Handler:

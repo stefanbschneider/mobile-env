@@ -4,7 +4,7 @@ from mobile_env.core.util import deep_dict_merge
 
 
 class MComLarge(MComCore):
-    def __init__(self, config={}):
+    def __init__(self, config={}, render_mode=None):
         # set unspecified parameters to default configuration
         config = deep_dict_merge(self.default_config(), config)
 
@@ -31,8 +31,6 @@ class MComLarge(MComCore):
         ]
 
         num_ues = 30
-        ues = [
-            UserEquipment(ue_id, **config["ue"]) for ue_id in range(num_ues)
-        ]
+        ues = [UserEquipment(ue_id, **config["ue"]) for ue_id in range(num_ues)]
 
-        super().__init__(stations, ues, config)
+        super().__init__(stations, ues, config, render_mode)
