@@ -1,5 +1,7 @@
 # extra requirements for testing
 pre-commit
+# limit importlib to avoid flake8 error: https://stackoverflow.com/a/73932581/2745116
+importlib-metadata<5.0
 flake8
 pytest
 # Older stable baselines versions do not support gymnasium
