@@ -9,18 +9,18 @@ with open(os.path.join(this_directory, "README.md"), encoding="utf-8") as f:
 
 
 requirements = [
-    "gymnasium>=0.28.1",
-    "matplotlib==3.5.0",
-    "numpy==1.21.4",
-    "pandas==1.5.3",
-    "pygame==2.1.0",
-    "shapely==1.8.0",
-    "svgpath2mpl==1.0.0",
+    "gymnasium",
+    "matplotlib",
+    "numpy",
+    "pandas",
+    "pygame",
+    "shapely",
+    "svgpath2mpl",
 ]
 
 setup(
     name="mobile-env",
-    version="1.1.4",
+    version="2.0.0",
     author="Stefan Schneider, Stefan Werner",
     description="mobile-env: An Open Environment for Autonomous Coordination in Wireless Mobile Networks",
     long_description=long_description,
