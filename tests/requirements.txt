@@ -4,4 +4,7 @@ pytest
 # Older stable baselines versions do not support gymnasium
 #stable-baselines3>=2.0.0
 sb3_contrib>=2.0.0a1
+# setuptools 65.5.0 is needed for gym 0.21 install to work (part of ray)
+# https://github.com/openai/gym/issues/3176#issuecomment-1408598628
+setuptools==65.5.0
 ray[rllib]
