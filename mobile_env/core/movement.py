@@ -1,5 +1,5 @@
-from typing import Dict, Tuple
 from abc import abstractmethod
+from typing import Dict, Tuple
 
 import numpy as np
 
@@ -8,12 +8,7 @@ from mobile_env.core.entities import UserEquipment
 
 class Movement:
     def __init__(
-        self,
-        width: float,
-        height: float,
-        seed: int,
-        reset_rng_episode: str,
-        **kwargs
+        self, width: float, height: float, seed: int, reset_rng_episode: str, **kwargs
     ):
 
         self.width, self.height = width, height

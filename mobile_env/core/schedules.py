@@ -1,5 +1,5 @@
-from typing import List
 from abc import abstractmethod
+from typing import List
 
 from mobile_env.core.entities import BaseStation
 

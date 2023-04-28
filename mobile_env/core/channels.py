@@ -1,10 +1,9 @@
-from typing import Dict, Tuple
 from abc import abstractmethod
+from typing import Dict, Tuple
 
 import numpy as np
 
 from mobile_env.core.entities import BaseStation, UserEquipment
-
 
 EPSILON = 1e-16
 
@@ -135,10 +134,7 @@ class OkumuraHata(Channel):
             - 1.56 * np.log10(bs.frequency)
         )
         tmp_1 = (
-            69.55
-            - ch
-            + 26.16 * np.log10(bs.frequency)
-            - 13.82 * np.log10(bs.height)
+            69.55 - ch + 26.16 * np.log10(bs.frequency) - 13.82 * np.log10(bs.height)
         )
         tmp_2 = 44.9 - 6.55 * np.log10(bs.height)
 

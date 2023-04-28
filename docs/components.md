@@ -14,7 +14,7 @@ The [base environment](https://mobile-env.readthedocs.io/en/latest/source/mobile
 
 1. [Channel](https://mobile-env.readthedocs.io/en/latest/source/mobile_env.core.html#mobile_env.core.channels.Channel): computes the data rate of connections among UEs and BSs.
 2. [Arrival](https://mobile-env.readthedocs.io/en/latest/source/mobile_env.core.html#mobile_env.core.arrival.Arrival): specifies the arrival and departure times of UEs, i.e., defines when and how long UEs request service.
-3. [Movement](https://mobile-env.readthedocs.io/en/latest/source/mobile_env.core.html#mobile_env.core.movement.Movement): model to define the movement patterns of UEs. 
+3. [Movement](https://mobile-env.readthedocs.io/en/latest/source/mobile_env.core.html#mobile_env.core.movement.Movement): model to define the movement patterns of UEs.
 4. [Schedule](https://mobile-env.readthedocs.io/en/latest/source/mobile_env.core.html#mobile_env.core.schedules.Scheduler): defines how BSs multiplex resources among all connected UEs.
 5. [Utility Function](https://mobile-env.readthedocs.io/en/latest/source/mobile_env.core.html#mobile_env.core.utilities.Utility): defines a function that quantifies the quality of experience (QoE) of UEs dependend on their (macro) data rate.
 
@@ -27,20 +27,20 @@ class LazyUEMovement(RandomWaypointMovement):
         super().__init__(**kwargs)
         # this UE doen't move!
         self.lazy_ue = lazy_ue
-        
+
     def move(self, ue):
         """Overrides default movement pattern."""
         # do not move lazy UE!
         if ue.ue_id == self.lazy_ue:
             return ue.x, ue.y
-        
+
         # default movement otherwise
         return super().move(ue)
 
 
 from mobile_env.core.base import MComCore
 
-# replace default movement in configuration 
+# replace default movement in configuration
 config = MComCore.default_config()
 config['movement'] = LazyUEMovement
 # pass init parameters to custom movement class!
@@ -71,7 +71,7 @@ class PathLoss(Channel):
         return loss
 
 
-# replace default channel model in configuration 
+# replace default channel model in configuration
 config = MComCore.default_config()
 config['channel'] = PathLoss
 
@@ -118,12 +118,12 @@ So far, [mobile-env](https://mobile-env.readthedocs.io/en/latest/index.html) imp
 ## Scenarios
 So far, mobile-env provides three simulation environments from small to large! They mostly differ in terms of the number of basestations and user equipments.
 
-Small Size             |  Medium Size             |  Large Size             
+Small Size             |  Medium Size             |  Large Size
 :-------------------------:|:-------------------------:|:-------------------------:
 ![](./images/small.png)  |  ![](./images/medium.png)  |  ![](./images/large.png)
 
 ## Wrappers
-Wrapper classes are used to make interfaces compatible with other libraries if they aren't already. For example, the multi-agent reinforcement learning libraries [RLlib](https://docs.ray.io/en/stable/rllib.html) and [PettingZoo](https://www.pettingzoo.ml/) expect different interfaces. So far, we only provide a wrapper class for RLlib's MultiAgentEnv, so that RLlib's multi-agent algorithms can be used to train on mobile-env!. 
+Wrapper classes are used to make interfaces compatible with other libraries if they aren't already. For example, the multi-agent reinforcement learning libraries [RLlib](https://docs.ray.io/en/stable/rllib.html) and [PettingZoo](https://www.pettingzoo.ml/) expect different interfaces. So far, we only provide a wrapper class for RLlib's MultiAgentEnv, so that RLlib's multi-agent algorithms can be used to train on mobile-env!.
 
 Example usage of our **RLlibMAWrapper** class:
 ```python

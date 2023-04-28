@@ -6,12 +6,10 @@ from mobile_env.core.entities import UserEquipment
 
 
 class Arrival:
-    def __init__(
-        self, ep_time: int, seed: int, reset_rng_episode: bool, **kwargs
-    ):
+    def __init__(self, ep_time: int, seed: int, reset_rng_eps: bool, **kwargs):
         self.ep_time = ep_time
         self.seed = seed
-        self.reset_rng_episode = reset_rng_episode
+        self.reset_rng_episode = reset_rng_eps
         # RNG for arrival and departure times of UEs
         self.rng = None
 

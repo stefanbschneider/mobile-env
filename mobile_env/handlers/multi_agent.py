@@ -70,9 +70,7 @@ class MComMAHandler(Handler):
         # get features for currently active UEs
         active = set([ue.ue_id for ue in env.active if not env.done])
         features = env.features()
-        features = {
-            ue_id: obs for ue_id, obs in features.items() if ue_id in active
-        }
+        features = {ue_id: obs for ue_id, obs in features.items() if ue_id in active}
 
         # select observations for multi-agent setting from base feature set
         obs = {
@@ -82,8 +80,7 @@ class MComMAHandler(Handler):
 
         # flatten each UE's Dict observation to vector representation
         obs = {
-            ue_id: np.concatenate([o for o in ue_obs])
-            for ue_id, ue_obs in obs.items()
+            ue_id: np.concatenate([o for o in ue_obs]) for ue_id, ue_obs in obs.items()
         }
         return obs
 

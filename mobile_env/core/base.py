@@ -1,27 +1,26 @@
 import string
-from typing import List, Tuple, Dict, Set
 from collections import Counter, defaultdict
+from typing import Dict, List, Set, Tuple
 
 import gymnasium as gym
-import pygame
-import numpy as np
-import matplotlib.pyplot as plt
 import matplotlib.patheffects as pe
-from pygame import Surface
+import matplotlib.pyplot as plt
+import numpy as np
+import pygame
 from matplotlib import cm
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+from pygame import Surface
 
 from mobile_env.core import metrics
-from mobile_env.handlers.central import MComCentralHandler
-from mobile_env.core.util import BS_SYMBOL
-from mobile_env.core.logging import Monitor
 from mobile_env.core.arrival import NoDeparture
 from mobile_env.core.channels import OkumuraHata
-from mobile_env.core.schedules import ResourceFair
-from mobile_env.core.utilities import BoundedLogUtility
 from mobile_env.core.entities import BaseStation, UserEquipment
+from mobile_env.core.logging import Monitor
 from mobile_env.core.movement import RandomWaypointMovement
-from mobile_env.core.util import deep_dict_merge
+from mobile_env.core.schedules import ResourceFair
+from mobile_env.core.util import BS_SYMBOL, deep_dict_merge
+from mobile_env.core.utilities import BoundedLogUtility
+from mobile_env.handlers.central import MComCentralHandler
 
 
 class MComCore(gym.Env):
@@ -32,7 +31,7 @@ class MComCore(gym.Env):
         super().__init__()
 
         self.render_mode = render_mode
-        assert render_mode is None or render_mode in self.metadata["render_modes"]
+        assert render_mode in self.metadata["render_modes"] + [None]
 
         # set unspecified parameters to default configuration
         config = deep_dict_merge(self.default_config(), config)
@@ -163,8 +162,8 @@ class MComCore(gym.Env):
 
     @classmethod
     def seeding(cls, config):
-        """Rotate the seed for the different random processes. Return config with updated seeds."""
-        
+        """Return config with updated and rotated seeds."""
+
         seed = config["seed"]
         keys = [
             "arrival_params",
@@ -181,7 +180,7 @@ class MComCore(gym.Env):
         return config
 
     def reset(self, *, seed=None, options=None):
-        """Reset environment to starting state. Return the initial observation and info."""
+        """Reset env to starting state. Return the initial obs and info."""
         super().reset(seed=seed)
 
         # reset time
@@ -197,7 +196,9 @@ class MComCore(gym.Env):
 
         # extra options currently not supported
         if options is not None:
-            raise NotImplementedError("Passing extra options on env.reset() is currently not implemented.")
+            raise NotImplementedError(
+                "Passing extra options on env.reset() is not supported."
+            )
 
         # reset state kept by arrival pattern, channel, scheduler, etc.
         self.arrival.reset()
@@ -279,7 +280,7 @@ class MComCore(gym.Env):
         self.connections.update(connections)
 
     def step(self, actions: Dict[int, int]):
-        assert not self.time_is_up, "step() called on already terminated episode"
+        assert not self.time_is_up, "step() called on terminated episode"
 
         # apply handler to transform actions to expected shape
         actions = self.handler.action(self, actions)
@@ -362,7 +363,7 @@ class MComCore(gym.Env):
         info = {**info, **self.monitor.info()}
 
         # there is not natural episode termination, just limited time
-        # hence, terminated is always False and truncated is True once time is up
+        # terminated is always False and truncated is True once time is up
         terminated = False
         truncated = self.time_is_up
 
@@ -635,9 +636,7 @@ class MComCore(gym.Env):
                 color=color,
                 marker="o",
             )
-            ax.annotate(
-                ue.ue_id, xy=(ue.point.x, ue.point.y), ha="center", va="center"
-            )
+            ax.annotate(ue.ue_id, xy=(ue.point.x, ue.point.y), ha="center", va="center")
 
         for bs in self.stations.values():
             # plot BS symbol and annonate by its BS ID

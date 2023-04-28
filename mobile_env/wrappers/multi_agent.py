@@ -47,8 +47,10 @@ class RLlibMAWrapper(MultiAgentEnv):
             for ue_id in self.prev_step_ues
         }
         truncateds["__all__"] = truncated
-        # Terminated is always False since there is no particular terminal goal to reach.
-        assert not terminated, "There is no natural episode termination. terminated should be False."
+        # Terminated is always False since there is no particular terminal end state.
+        assert (
+            not terminated
+        ), "There is no natural episode termination. terminated should be False."
         terminateds = {ue_id: False for ue_id in self.prev_step_ues}
         terminateds["__all__"] = False
 

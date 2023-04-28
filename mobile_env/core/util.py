@@ -1,7 +1,7 @@
 from typing import Dict
 
-import svgpath2mpl
 import matplotlib
+import svgpath2mpl
 
 BS_SYMBOL = (
     "M31.5,19c0-4.1-3.4-7.5-7.5-7.5s-7.5,3.4-7.5,7.5c0,2.9,1.6,5.4,4,"

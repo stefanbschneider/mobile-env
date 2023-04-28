@@ -1,4 +1,5 @@
 # extra requirements for testing
+pre-commit
 flake8
 pytest
 # Older stable baselines versions do not support gymnasium

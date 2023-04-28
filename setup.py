@@ -1,6 +1,6 @@
 import os
-from setuptools import setup, find_packages
 
+from setuptools import find_packages, setup
 
 # read the contents of the README file
 this_directory = os.path.abspath(os.path.dirname(__file__))
@@ -22,7 +22,8 @@ setup(
     name="mobile-env",
     version="2.0.0",
     author="Stefan Schneider, Stefan Werner",
-    description="mobile-env: An Open Environment for Autonomous Coordination in Wireless Mobile Networks",
+    description="mobile-env: An Open Environment for Autonomous Coordination in "
+    "Wireless Mobile Networks",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/stefanbschneider/mobile-env",

@@ -15,13 +15,13 @@ Here is an example of how mobile-env's environments can be created:
 import gymnasium as gym
 import mobile_env
 
-# small environment; centralized control 
+# small environment; centralized control
 env = gym.make('mobile-small-central-v0')
 
-# large environment; centralized control 
+# large environment; centralized control
 env = gym.make('mobile-large-central-v0')
 
-# small environment; multi-agent control 
+# small environment; multi-agent control
 env = gym.make('mobile-large-ma-v0')
 ...
 

@@ -5,11 +5,7 @@ import pandas as pd
 
 class Monitor:
     def __init__(
-        self,
-        scalar_metrics: Dict,
-        ue_metrics: Dict,
-        bs_metrics: Dict,
-        **kwargs
+        self, scalar_metrics: Dict, ue_metrics: Dict, bs_metrics: Dict, **kwargs
     ):
 
         self.scalar_metrics: Dict = scalar_metrics
@@ -32,16 +28,13 @@ class Monitor:
 
         # evaluate scalar, ue, bs metrics by passing the simulation state
         scalar_updates = {
-            name: metric(simulation)
-            for name, metric in self.scalar_metrics.items()
+            name: metric(simulation) for name, metric in self.scalar_metrics.items()
         }
         ue_updates = {
-            name: metric(simulation)
-            for name, metric in self.ue_metrics.items()
+            name: metric(simulation) for name, metric in self.ue_metrics.items()
         }
         bs_updates = {
-            name: metric(simulation)
-            for name, metric in self.bs_metrics.items()
+            name: metric(simulation) for name, metric in self.bs_metrics.items()
         }
 
         # update results by appending the metrics' return values
@@ -50,12 +43,10 @@ class Monitor:
             for name in self.scalar_metrics
         }
         self.ue_results = {
-            name: self.ue_results[name] + [ue_updates[name]]
-            for name in self.ue_metrics
+            name: self.ue_results[name] + [ue_updates[name]] for name in self.ue_metrics
         }
         self.bs_results = {
-            name: self.bs_results[name] + [bs_updates[name]]
-            for name in self.bs_metrics
+            name: self.bs_results[name] + [bs_updates[name]] for name in self.bs_metrics
         }
 
     def load_results(self):
@@ -75,9 +66,7 @@ class Monitor:
         # change data frame format to align time axis along rows
         ue_results = ue_results.stack()
         ue_results.index.names = ["Metric", "UE ID", "Time Step"]
-        ue_results = ue_results.reorder_levels(
-            ["Time Step", "UE ID", "Metric"]
-        )
+        ue_results = ue_results.reorder_levels(["Time Step", "UE ID", "Metric"])
         ue_results = ue_results.unstack()
 
         # load BS results with index (metric, BS ID; time)
@@ -91,9 +80,7 @@ class Monitor:
         # change data frame format to align time axis along rows
         bs_results = bs_results.stack()
         bs_results.index.names = ["Metric", "BS ID", "Time Step"]
-        bs_results = bs_results.reorder_levels(
-            ["Time Step", "BS ID", "Metric"]
-        )
+        bs_results = bs_results.reorder_levels(["Time Step", "BS ID", "Metric"])
         bs_results = bs_results.unstack()
 
         return scalar_results, ue_results, bs_results
@@ -104,15 +91,9 @@ class Monitor:
         # Return empty infos if there are no scalar results.
         if any(len(results) == 0 for results in self.scalar_results.values()):
             return {}
-        
-        scalar_info = {
-            name: values[-1] for name, values in self.scalar_results.items()
-        }
-        ue_info = {
-            name: values[-1] for name, values in self.ue_results.items()
-        }
-        bs_info = {
-            name: values[-1] for name, values in self.bs_results.items()
-        }
+
+        scalar_info = {name: values[-1] for name, values in self.scalar_results.items()}
+        ue_info = {name: values[-1] for name, values in self.ue_results.items()}
+        bs_info = {name: values[-1] for name, values in self.bs_results.items()}
 
         return {**scalar_info, **ue_info, **bs_info}
