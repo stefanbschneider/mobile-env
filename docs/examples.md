@@ -9,20 +9,20 @@ We provide an in-depth example of mobile-env's usage on Google Colab! The notebo
 [![Open in colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/stefanbschneider/mobile-env/blob/master/examples/demo.ipynb)
 
 ## Environment Creation
-`mobile-env` follows the OpenAI Gym interface.
+`mobile-env` follows the [Gymnasium interface](https://gymnasium.farama.org/).
 Here is an example of how mobile-env's environments can be created:
 ```python
-import gymnasium as gym
+import gymnasium
 import mobile_env
 
 # small environment; centralized control
-env = gym.make('mobile-small-central-v0')
+env = gymnasium.make('mobile-small-central-v0')
 
 # large environment; centralized control
-env = gym.make('mobile-large-central-v0')
+env = gymnasium.make('mobile-large-central-v0')
 
 # small environment; multi-agent control
-env = gym.make('mobile-large-ma-v0')
+env = gymnasium.make('mobile-large-ma-v0')
 ...
 
 # then run the environment

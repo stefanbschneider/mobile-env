@@ -5,7 +5,7 @@ from gymnasium.spaces.space import Space
 
 
 class Handler:
-    """Defines Gym interface methods called by core simulation."""
+    """Defines Gymnasium interface methods called by core simulation."""
 
     @classmethod
     @abc.abstractmethod
