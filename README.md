@@ -7,9 +7,10 @@
 
 # mobile-env: An Open Environment for Autonomous Coordination in Mobile Networks
 
-mobile-env is an open, minimalist OpenAI Gym environment for training and evaluating coordination algorithms in wireless mobile networks.
+mobile-env is an open, minimalist environment for training and evaluating coordination algorithms in wireless mobile networks.
 The environment allows modeling users moving around an area and can connect to one or multiple base stations.
-Using the Gym interface, the environment can be used with any reinforcement learning framework (e.g., stable-baselines or Ray RLlib) or any custom (even non-RL) coordination approach.
+Using the [Gymnasium](https://gymnasium.farama.org/) ([previously Gym](https://www.gymlibrary.dev/)) interface,
+the environment can be used with any reinforcement learning framework (e.g., stable-baselines or Ray RLlib) or any custom (even non-RL) coordination approach.
 The environment is highly configurable and can be easily extended (e.g., regarding users, movement patterns, channel models, etc.).
 
 mobile-env supports multi-agent and centralized reinforcement learning policies. It provides various choices for rewards and observations. mobile-env is also easily extendable, so that anyone may add another channel models (e.g. path loss), movement patterns, utility functions, etc.
@@ -78,10 +79,10 @@ For dependencies for building docs, install the requirements in `docs`.
 ## Example Usage
 
 ```python
-import gymnasium as gym
+import gymnasium
 import mobile_env
 
-env = gym.make("mobile-medium-central-v0")
+env = gymnasium.make("mobile-medium-central-v0")
 obs, info = env.reset()
 done = False
 
@@ -98,7 +99,7 @@ mobile-env supports custom channel models, movement patterns, arrival & departur
 For example, replacing the default [Okumura–Hata](https://en.wikipedia.org/wiki/Hata_model) channel model by a (simplified) path loss model can be as easy as this:
 
 ```python
-import gymnasium as gym
+import gymnasium
 import numpy as np
 from mobile_env.core.base import MComCore
 from mobile_env.core.channel import Channel
@@ -125,7 +126,7 @@ config['channel'] = PathLoss
 config['channel_params'].update({'gamma': 2.0})
 
 # create environment with custom channel model
-env = gym.make('mobile-small-central-v0', config=config)
+env = gymnasium.make('mobile-small-central-v0', config=config)
 # ...
 ```
 
