@@ -60,7 +60,6 @@ class UserEquipment:
     def __str__(self):
         return f"UE: {self.ue_id}"
 
-
 class EdgeServer:
     def __init__(self, es_id: int, inp_id: int, bs_id: int) -> None:
         self.es_id = es_id
@@ -81,3 +80,19 @@ class EdgeServer:
 
     def __str__(self) -> str:
         return f"ES: {self.es_id}"
+
+class Task:
+    def __init__(
+        self,
+        ue_id: int,
+        computing_req: int,
+        data_req: int,
+        latency_req: float,
+    ):
+        self.ue_id = ue_id
+        self.computing_req = computing_req
+        self.data_req = data_req
+        self.latency_req = latency_req
+
+    def __str__(self):
+        return f"Task: (ue: {self.ue_id}, req: ({self.computing_req, self.data_req, self.latency_req}))"
