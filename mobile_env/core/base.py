@@ -27,7 +27,7 @@ class MComCore(gym.Env):
     NOOP_ACTION = 0
     metadata = {"render_modes": ["rgb_array", "human"]}
 
-    def __init__(self, stations, users, config={}, render_mode=None):
+    def __init__(self, stations, edge_servers, users, config={}, render_mode=None):
         super().__init__()
 
         self.render_mode = render_mode
@@ -55,8 +55,10 @@ class MComCore(gym.Env):
 
         # defines the simulation's overall basestations and UEs
         self.stations = {bs.bs_id: bs for bs in stations}
+        self.edge_servers = {es.es_id: es for es in edge_servers}
         self.users = {ue.ue_id: ue for ue in users}
         self.NUM_STATIONS = len(self.stations)
+        self.NUM_EDGE_SERVERS = len(self.edge_servers)
         self.NUM_USERS = len(self.users)
 
         # define sizes of base feature set that can or cannot be observed
