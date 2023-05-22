@@ -7,7 +7,6 @@ class Monitor:
     def __init__(
         self, scalar_metrics: Dict, ue_metrics: Dict, bs_metrics: Dict, **kwargs
     ):
-
         self.scalar_metrics: Dict = scalar_metrics
         self.ue_metrics: Dict = ue_metrics
         self.bs_metrics: Dict = bs_metrics

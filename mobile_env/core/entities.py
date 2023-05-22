@@ -1,6 +1,7 @@
-from typing import Tuple
+from typing import Tuple, List
 
 from shapely.geometry import Point
+import random
 
 
 class BaseStation:
@@ -58,3 +59,25 @@ class UserEquipment:
 
     def __str__(self):
         return f"UE: {self.ue_id}"
+
+
+class EdgeServer:
+    def __init__(self, es_id: int, inp_id: int, bs_id: int) -> None:
+        self.es_id = es_id
+        self.inp_id = inp_id
+        self.bs_id = bs_id
+        self.bundle = None
+
+    def offer_bundle(self):
+        self.bundle = {
+            "storage": random.randint(1, 1000),  # in GB
+            "cpu": random.randint(1, 230),  # in vCPU
+        }
+        return self.bundle
+
+    def choose_bid_winner(self, bids: List[Tuple[int, int]]):
+        # Pay attention to the case of equal bids
+        return max(bids)[1]
+
+    def __str__(self) -> str:
+        return f"ES: {self.es_id}"
