@@ -2,7 +2,7 @@ import string
 from collections import Counter, defaultdict
 from typing import Dict, List, Set, Tuple
 
-import gymnasium as gym
+import gymnasium
 import matplotlib.patheffects as pe
 import matplotlib.pyplot as plt
 import numpy as np
@@ -23,7 +23,7 @@ from mobile_env.core.utilities import BoundedLogUtility
 from mobile_env.handlers.central import MComCentralHandler
 
 
-class MComCore(gym.Env):
+class MComCore(gymnasium.Env):
     NOOP_ACTION = 0
     metadata = {"render_modes": ["rgb_array", "human"]}
 

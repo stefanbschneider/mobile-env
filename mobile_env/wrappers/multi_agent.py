@@ -1,6 +1,6 @@
 from typing import Tuple
 
-import gymnasium as gym
+import gymnasium
 import numpy as np
 from ray.rllib.env.multi_agent_env import MultiAgentEnv
 from ray.rllib.utils.typing import MultiAgentDict
@@ -19,9 +19,9 @@ class RLlibMAWrapper(MultiAgentEnv):
         # override action and observation space defined for wrapped environment
         # RLlib expects the action and observation space
         # to be defined per actor, i.e, per UE
-        self.action_space = gym.spaces.Discrete(self.env.NUM_STATIONS + 1)
+        self.action_space = gymnasium.spaces.Discrete(self.env.NUM_STATIONS + 1)
         size = self.env.handler.ue_obs_size(self.env)
-        self.observation_space = gym.spaces.Box(
+        self.observation_space = gymnasium.spaces.Box(
             low=-1, high=1, shape=(size,), dtype=np.float32
         )
 
@@ -56,6 +56,10 @@ class RLlibMAWrapper(MultiAgentEnv):
 
         # update keys of previous observation dictionary
         self.prev_step_ues = set(obs.keys())
+
+        # RLlib expects the keys of infos to be a subset of obs + __common__
+        # Put all infos under __common__
+        infos = {"__common__": infos}
 
         return obs, rews, terminateds, truncateds, infos
 

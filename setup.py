@@ -20,7 +20,7 @@ requirements = [
 
 setup(
     name="mobile-env",
-    version="2.0.0",
+    version="2.0.1",
     author="Stefan Schneider, Stefan Werner",
     description="mobile-env: An Open Environment for Autonomous Coordination in "
     "Wireless Mobile Networks",
