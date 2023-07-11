@@ -1,6 +1,6 @@
 from typing import Dict
 
-import gymnasium as gym
+import gymnasium
 import numpy as np
 
 from mobile_env.handlers.handler import Handler
@@ -20,23 +20,23 @@ class MComMAHandler(Handler):
         return sum(env.feature_sizes[ftr] for ftr in cls.features)
 
     @classmethod
-    def action_space(cls, env) -> gym.spaces.Dict:
-        return gym.spaces.Dict(
+    def action_space(cls, env) -> gymnasium.spaces.Dict:
+        return gymnasium.spaces.Dict(
             {
-                ue.ue_id: gym.spaces.Discrete(env.NUM_STATIONS + 1)
+                ue.ue_id: gymnasium.spaces.Discrete(env.NUM_STATIONS + 1)
                 for ue in env.users.values()
             }
         )
 
     @classmethod
-    def observation_space(cls, env) -> gym.spaces.Dict:
+    def observation_space(cls, env) -> gymnasium.spaces.Dict:
         size = cls.ue_obs_size(env)
         space = {
-            ue_id: gym.spaces.Box(low=-1, high=1, shape=(size,), dtype=np.float32)
+            ue_id: gymnasium.spaces.Box(low=-1, high=1, shape=(size,), dtype=np.float32)
             for ue_id in env.users
         }
 
-        return gym.spaces.Dict(space)
+        return gymnasium.spaces.Dict(space)
 
     @classmethod
     def reward(cls, env):
@@ -68,7 +68,7 @@ class MComMAHandler(Handler):
         """Select features for MA setting & flatten each UE's features."""
 
         # get features for currently active UEs
-        active = set([ue.ue_id for ue in env.active if not env.done])
+        active = set([ue.ue_id for ue in env.active if not env.time_is_up])
         features = env.features()
         features = {ue_id: obs for ue_id, obs in features.items() if ue_id in active}
 

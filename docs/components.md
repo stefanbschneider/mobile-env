@@ -47,7 +47,7 @@ config['movement'] = LazyUEMovement
 config['movement_params'].update({'lazy_ue': 3})
 
 # create environment with lazy UE!
-env = gym.make('mobile-small-central-v0', config=config)
+env = gymnasium.make('mobile-small-central-v0', config=config)
 ```
 
 This example demonstrates that each core component can be replaced **without changing source code**. It also shows that we can pass parameters to the components' initialization via the ``config`` dictionary. Adapting the channel model, etc., works similarly. For example, replacing the default [Okumura–Hata](https://en.wikipedia.org/wiki/Hata_model) channel model by a (simplified) path loss model can be as easy as this:
@@ -79,7 +79,7 @@ config['channel'] = PathLoss
 config['channel_params'].update({'gamma': 2.0})
 
 # create environment with custom channel model
-env = gym.make('mobile-small-central-v0', config=config)
+env = gymnasium.make('mobile-small-central-v0', config=config)
 ...
 ```
 
@@ -110,7 +110,7 @@ class CustomHandler(Handler):
         ...
 
 config = {'handler': CustomHandler}
-env = gym.make('mobile-small-central-v0', config=config)
+env = gymnasium.make('mobile-small-central-v0', config=config)
 ```
 
 So far, [mobile-env](https://mobile-env.readthedocs.io/en/latest/index.html) implements handlers for a multi-agent and centralized control setting.
@@ -129,7 +129,7 @@ Example usage of our **RLlibMAWrapper** class:
 ```python
 from mobile_env.wrappers.multi_agent import RLlibMAWrapper
 
-env = gym.make('mobile-small-ma-v0')
+env = gymnasium.make('mobile-small-ma-v0')
 # wrap multi-agent env for RLlib compatibility
 env = RLlibMAWrapper(env)
 # use RLlib to train on the environment ...
