@@ -27,7 +27,10 @@ To maximize QoE globally, the policy must recognize that (1) the data rate of an
     <sup><a href="https://thenounproject.com/search/?q=base+station&i=1286474" target="_blank">Base station icon</a> by Clea Doltz from the Noun Project</sup>
 </p>
 
-**[Try mobile-env: ![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/stefanbschneider/mobile-env/blob/master/examples/demo.ipynb)**
+**Try mobile-env:**
+
+- Part I: Customizing mobile-env and single-agent RL with stable-baselines3: ![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/stefanbschneider/mobile-env/blob/master/examples/demo.ipynb)
+- Part II: Multi-agent RL on mobile-env with Ray RLlib: ![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/stefanbschneider/mobile-env/blob/master/examples/rllib.ipynb)
 
 Documentation and API: [ReadTheDocs](https://mobile-env.readthedocs.io/en/latest/)
 
