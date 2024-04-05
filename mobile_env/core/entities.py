@@ -58,3 +58,26 @@ class UserEquipment:
 
     def __str__(self):
         return f"UE: {self.ue_id}"
+    
+    
+class Sensor:
+    def __init__(
+            self,
+            sensor_id: int,
+            pos: Tuple[float, float],
+            height: float,
+            range: float,
+            velocity: float,
+    ):
+        self.sensor_id = sensor_id
+        self.x, self.y = pos
+        self.height = height
+        self.range = range
+        self. velocity = velocity
+
+    @property
+    def point(self):
+        return Point(int(self.x), int(self.y))
+
+    def __str__(self):
+        return f"Sensor: {self.sensor_id}"
