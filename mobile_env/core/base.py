@@ -14,11 +14,11 @@ from pygame import Surface
 from mobile_env.core import metrics
 from mobile_env.core.arrival import NoDeparture
 from mobile_env.core.channels import OkumuraHata
-from mobile_env.core.entities import BaseStation, UserEquipment
+from mobile_env.core.entities import BaseStation, UserEquipment, Sensor
 from mobile_env.core.logging import Monitor
 from mobile_env.core.movement import RandomWaypointMovement
 from mobile_env.core.schedules import ResourceFair
-from mobile_env.core.util import BS_SYMBOL, deep_dict_merge
+from mobile_env.core.util import BS_SYMBOL, SENSOR_SYMBOL, deep_dict_merge
 from mobile_env.core.utilities import BoundedLogUtility
 from mobile_env.handlers.central import MComCentralHandler
 
@@ -27,7 +27,7 @@ class MComCore(gymnasium.Env):
     NOOP_ACTION = 0
     metadata = {"render_modes": ["rgb_array", "human"]}
 
-    def __init__(self, stations, users, config={}, render_mode=None):
+    def __init__(self, stations, users, sensors, config={}, render_mode=None):
         super().__init__()
 
         self.render_mode = render_mode
@@ -56,6 +56,7 @@ class MComCore(gymnasium.Env):
         # defines the simulation's overall basestations and UEs
         self.stations = {bs.bs_id: bs for bs in stations}
         self.users = {ue.ue_id: ue for ue in users}
+        self.sensors = {sensor.sensor_id: sensor for sensor in sensors}
         self.NUM_STATIONS = len(self.stations)
         self.NUM_USERS = len(self.users)
 
@@ -84,6 +85,8 @@ class MComCore(gymnasium.Env):
         self.utilities: Dict[UserEquipment, float] = None
         # define RNG (as of now: unused)
         self.rng = None
+        # stores active sensors
+        self.active_sensors: List[Sensor] = None
 
         # parameters for pygame visualization
         self.window = None
@@ -131,6 +134,12 @@ class MComCore(gymnasium.Env):
                 "noise": 1e-9,
                 "height": 1.5,
             },
+            # default Sensor config
+            "sensor": {
+                "height": 1.5,
+                "range": 100,
+                "velocity": 0,
+            }          
         }
 
         # set up default configuration parameters for arrival pattern, ...
@@ -681,6 +690,27 @@ class MComCore(gymnasium.Env):
                     linewidth=3,
                     zorder=-1,
                 )
+
+        for sensor in self.sensors.values():
+            # plot sensor symbol and annonate by its sensor ID
+            ax.plot(
+                sensor.point.x,
+                sensor.point.y,
+                marker=SENSOR_SYMBOL,
+                markersize=10,
+                markeredgewidth=0.1,
+                color="blue",
+            )
+            sensor_id = string.ascii_uppercase[sensor.sensor_id]
+            ax.annotate(
+                sensor_id,
+                xy=(sensor.point.x, sensor.point.y),
+                xytext=(0, -15),
+                ha="center",
+                va="bottom",
+                textcoords="offset points",
+                fontsize="8",
+            )
 
         # remove simulation axis's ticks and spines
         ax.get_xaxis().set_visible(False)
