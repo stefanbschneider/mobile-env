@@ -59,6 +59,7 @@ class MComCore(gymnasium.Env):
         self.sensors = {sensor.sensor_id: sensor for sensor in sensors}
         self.NUM_STATIONS = len(self.stations)
         self.NUM_USERS = len(self.users)
+        self.NUM_SENSORS = len(self.sensors)
 
         # define sizes of base feature set that can or cannot be observed
         self.feature_sizes = {
@@ -85,8 +86,6 @@ class MComCore(gymnasium.Env):
         self.utilities: Dict[UserEquipment, float] = None
         # define RNG (as of now: unused)
         self.rng = None
-        # stores active sensors
-        self.active_sensors: List[Sensor] = None
 
         # parameters for pygame visualization
         self.window = None
