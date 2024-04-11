@@ -65,18 +65,28 @@ class Sensor:
             sensor_id: int,
             pos: Tuple[float, float],
             height: float,
+            snr_tr: float,
             range: float,
             velocity: float,
+            radius: float,
+            logs: dict[int, int],
     ):
         self.sensor_id = sensor_id
         self.x, self.y = pos
         self.height = height
+        self.snr_threshold = snr_tr
         self.range = range
         self. velocity = velocity
+        self.radius = radius
+        self.logs = logs
 
     @property
     def point(self):
         return Point(int(self.x), int(self.y))
 
+    def is_within_range(self, ue_point):
+        """Check if a UE is within the sensor's range."""
+        return self.point.distance(ue_point) <= self.radius
+    
     def __str__(self):
         return f"Sensor: {self.sensor_id}"

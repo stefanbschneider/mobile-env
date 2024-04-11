@@ -68,6 +68,7 @@ class MComCore(gymnasium.Env):
             "utility": 1,
             "bcast": self.NUM_STATIONS,
             "stations_connected": self.NUM_STATIONS,
+            "sensors": self.NUM_SENSORS,
         }
 
         # set object that handles calls to action(), reward() & observation()
@@ -100,6 +101,7 @@ class MComCore(gymnasium.Env):
                 "number connected": metrics.number_connected,
                 "mean utility": metrics.mean_utility,
                 "mean datarate": metrics.mean_datarate,
+                "sensor_measurements": metrics.sensor_measurements,
             }
         )
         self.monitor = Monitor(**config["metrics"])
@@ -135,8 +137,9 @@ class MComCore(gymnasium.Env):
             },
             # default Sensor config
             "sensor": {
-                "height": 1.5,
-                "range": 100,
+                "height": 30,
+                "radius": 5,
+                "snr_tr": 2e-8,
                 "velocity": 0,
             }          
         }
@@ -193,6 +196,7 @@ class MComCore(gymnasium.Env):
 
         # reset time
         self.time = 0.0
+        self.current_time = 0
 
         # set seed
         if seed is not None:
@@ -251,6 +255,11 @@ class MComCore(gymnasium.Env):
         # store latest monitored results in `info` dictionary
         info = {**info, **self.monitor.info()}
 
+        #reset the sensor's logs 
+        for sensor in self.sensors.values():
+            sensor.logs.clear()
+        
+        
         return self.handler.observation(self), info
 
     def apply_action(self, action: int, ue: UserEquipment) -> None:
@@ -286,6 +295,20 @@ class MComCore(gymnasium.Env):
         }
         self.connections.clear()
         self.connections.update(connections)
+
+    def update_positions(self):
+        '''Checks if ue in range and adds the timestamp to the UE'''
+        for ue in self.users.values():  # Iterates over all the UEs 
+            ue_point = ue.point 
+
+            for sensor in self.sensors.values():  # Iterate over all sensors 
+                if sensor.is_within_range(ue_point):
+                    # If this is the first time the UE is detected, initialize a list for it
+                    if ue.ue_id not in sensor.logs:
+                        sensor.logs[ue.ue_id] = [self.current_time]
+                    else:
+                        # If the UE has already been detected, append the current time to its list of timestamps
+                        sensor.logs[ue.ue_id].append(self.current_time)
 
     def step(self, actions: Dict[int, int]):
         assert not self.time_is_up, "step() called on terminated episode"
@@ -352,6 +375,7 @@ class MComCore(gymnasium.Env):
 
         # update internal time of environment
         self.time += 1
+        self.current_time += self.time_step
 
         # check whether episode is done & close the environment
         if self.time_is_up and self.window:
