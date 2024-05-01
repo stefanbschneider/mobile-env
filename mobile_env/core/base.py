@@ -21,6 +21,7 @@ from mobile_env.core.schedules import ResourceFair
 from mobile_env.core.util import BS_SYMBOL, SENSOR_SYMBOL, deep_dict_merge
 from mobile_env.core.utilities import BoundedLogUtility
 from mobile_env.handlers.central import MComCentralHandler
+from queues import Buffer
 
 
 class MComCore(gymnasium.Env):
@@ -165,6 +166,7 @@ class MComCore(gymnasium.Env):
                     "scalar_metrics": {},
                     "ue_metrics": {},
                     "bs_metrics": {},
+                    "ss_metrics": {},
                 }
             }
         )
@@ -318,6 +320,7 @@ class MComCore(gymnasium.Env):
 
         # release established connections that moved e.g. out-of-range
         self.update_connections()
+        self.update_positions()
 
         # TODO: add penalties for changing connections?
         for ue_id, action in actions.items():
@@ -649,6 +652,17 @@ class MComCore(gymnasium.Env):
 
         else:
             raise ValueError("Invalid rendering mode.")
+    
+    def add_packets(data_packets):
+        data_packets = []
+        for packet in data_packets:
+            if not BaseStation.data_buffer.is_full():
+                BaseStation.data_buffer.add(packet)
+    
+    def remove_packets():
+        while not BaseStation.size.is_empty:
+            data = BaseStation.data_buffer.get()
+            return data
 
     def render_simulation(self, ax) -> None:
         colormap = cm.get_cmap("RdYlGn")

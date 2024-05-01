@@ -1,6 +1,6 @@
 from typing import Tuple
-
 from shapely.geometry import Point
+from queues import Buffer
 
 
 class BaseStation:
@@ -12,15 +12,16 @@ class BaseStation:
         freq: float,
         tx: float,
         height: float,
+        size = 10,
     ):
         # BS ID should be final, i.e., BS ID must be unique
-        # NOTE: cannot use Final typing due to support for Python 3.7
         self.bs_id = bs_id
         self.x, self.y = pos
         self.bw = bw  # in Hz
         self.frequency = freq  # in MHz
         self.tx_power = tx  # in dBm
         self.height = height  # in m
+        self.data_buffer_uplink = Buffer(size) #adding buffer for uplink communicaiton 
 
     @property
     def point(self):
@@ -38,6 +39,7 @@ class UserEquipment:
         snr_tr: float,
         noise: float,
         height: float,
+        size = 10,
     ):
         # UE ID should be final, i.e., UE ID must be unique
         # NOTE: cannot use Final typing due to support for Python 3.7
@@ -51,7 +53,7 @@ class UserEquipment:
         self.y: float = None
         self.stime: int = None
         self.extime: int = None
-
+        self.data_buffer_uplink = Buffer(size) 
     @property
     def point(self):
         return Point(int(self.x), int(self.y))
@@ -70,6 +72,7 @@ class Sensor:
             velocity: float,
             radius: float,
             logs: dict[int, int],
+            size = 10,
     ):
         self.sensor_id = sensor_id
         self.x, self.y = pos
@@ -79,6 +82,7 @@ class Sensor:
         self. velocity = velocity
         self.radius = radius
         self.logs = logs
+        self.data_buffer_1 = Buffer(size)
 
     @property
     def point(self):
