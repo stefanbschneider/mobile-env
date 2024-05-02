@@ -24,5 +24,6 @@ class MComSmartCity(MComCore):
         sensors = [
             Sensor(sensor_id, position, **config["sensor"]) 
             for sensor_id, position in enumerate(sensor_pos)]
+        
 
         super().__init__(stations, ues, sensors, config, render_mode)
