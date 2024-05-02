@@ -140,7 +140,9 @@ class MComCore(gymnasium.Env):
                 "height": 30,
                 "radius": 5,
                 "snr_tr": 2e-8,
+                "range": 0,
                 "velocity": 0,
+                "logs": "",
             }          
         }
 
