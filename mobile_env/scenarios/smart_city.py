@@ -4,7 +4,7 @@ from mobile_env.core.util import deep_dict_merge
 
 
 class MComSmartCity(MComCore):
-    def _init_(self, config={}, render_mode=None):
+    def __init__(self, config={}, render_mode=None):
         # set unspecified parameters to default configuration
         config = deep_dict_merge(self.default_config(), config)
 
@@ -28,4 +28,4 @@ class MComSmartCity(MComCore):
             for sensor_id, position in enumerate(sensor_pos)]
         
 
-        super()._init_(stations, ues, sensors, config, render_mode)
+        super().__init__(stations, ues, sensors, config, render_mode)

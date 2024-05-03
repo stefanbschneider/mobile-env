@@ -16,6 +16,7 @@ requirements = [
     "pygame",
     "shapely",
     "svgpath2mpl",
+    "queues"
 ]
 
 setup(
