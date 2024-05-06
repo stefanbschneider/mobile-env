@@ -1,37 +1,19 @@
-import queue
-import threading
+from multiprocessing import Process, Queue
 import random
 from time import sleep
 
 class Buffer:
-    def __init__(self, size):
-        self.size = size
-        self.data_queue = queue.Queue(maxsize=size)
+    def __init__(self, queue):
+        self.data_queue = queue
 
     def add(self, item):
-        try:
-            self.data_queue.put(item, block=True, timeout=2)  
-            print(f"Added to Buffer: {item.index}")
-        except queue.Full:
-            print("Buffer is full, could not add the item.")
+        self.data_queue.put(item)
+        print(f"Added to Buffer: {item.index}")
 
     def get(self):
-        try:
-            item = self.data_queue.get(block=True, timeout=2)
-            print(f"Removed from Buffer: {item.index}")
-            return item
-        except queue.Empty:
-            print("Buffer is empty, nothing to consume.")
-
-    def is_full(self):
-        return self.data_queue.full()
-
-    def is_empty(self):
-        return self.data_queue.empty()
-
-    def current_size(self):
-        return self.data_queue.qsize()
-
+        item = self.data_queue.get()
+        print(f"Removed from Buffer: {item.index}")
+        return item
 
 class Packets:
     counter = 0  # Class variable to keep track of the index across all instances
@@ -40,7 +22,7 @@ class Packets:
         self.size = self.generate_data()
         self.index = self.generate_index()
         self.data = format(self.size, '08b')
-        
+
     @staticmethod
     def generate_data():
         return random.randint(0, 255)
@@ -49,13 +31,13 @@ class Packets:
     def generate_index(cls):
         cls.counter += 1
         return cls.counter
-    
+
     def queue_update(self, buffer):
         if random.random() < 0.5:  # Let's assume a 50% chance to enqueue the packet
             buffer.add(self)
             return True
         else:
-            print("didn't enter ")
+            print(f"Packet {self.index} didn't enter the queue.")
             return False
 
 def producer(buffer):
@@ -66,18 +48,24 @@ def producer(buffer):
 
 def consumer(buffer):
     while True:
-        if not buffer.is_empty():
-            buffer.get()
+        buffer.get()
         sleep(1)  # Sleep to simulate processing time
 
-# Create a buffer object with a size limit
-buffer_size = 10  # Reduced for demonstration purposes
-shared_buffer = Buffer(buffer_size)
+if __name__ == "__main__":
+    # Create a multiprocessing Queue
+    queue = Queue()
 
-# Create producer and consumer threads
-producer_thread = threading.Thread(target=producer, args=(shared_buffer,))
-consumer_thread = threading.Thread(target=consumer, args=(shared_buffer,))
+    # Create a buffer object with the multiprocessing Queue
+    shared_buffer = Buffer(queue)
 
-# Start the threads
-producer_thread.start()
-consumer_thread.start()
+    # Create producer and consumer processes
+    producer_process = Process(target=producer, args=(shared_buffer,))
+    consumer_process = Process(target=consumer, args=(shared_buffer,))
+
+    # Start the processes
+    producer_process.start()
+    consumer_process.start()
+
+    # Wait for the processes to finish (they won't in this setup unless you define a stopping condition)
+    producer_process.join()
+    consumer_process.join()
