@@ -26,6 +26,6 @@ def mean_utility(sim):
 
     return np.mean(list(sim.utilities.values()))
 
-def sensor_measurements():
+def sensor_measurements(sim):
     #metric function for the sensors
     pass

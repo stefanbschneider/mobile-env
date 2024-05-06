@@ -15,7 +15,7 @@ from mobile_env.core import metrics
 from mobile_env.core.arrival import NoDeparture
 from mobile_env.core.channels import OkumuraHata
 from mobile_env.core.entities import BaseStation, UserEquipment, Sensor
-from mobile_env.core.logging import Monitor
+from mobile_env.core.monitoring import Monitor
 from mobile_env.core.movement import RandomWaypointMovement
 from mobile_env.core.schedules import ResourceFair
 from mobile_env.core.util import BS_SYMBOL, SENSOR_SYMBOL, deep_dict_merge
@@ -307,12 +307,15 @@ class MComCore(gymnasium.Env):
 
             for sensor in self.sensors.values():  # Iterate over all sensors 
                 if sensor.is_within_range(ue_point):
-                    # If this is the first time the UE is detected, initialize a list for it
-                    if ue.ue_id not in sensor.logs:
-                        sensor.logs[ue.ue_id] = [self.current_time]
+                    # Ensure ue.ue_id is a string if sensor.logs uses string keys
+                    ue_id_str = str(ue.ue_id)
+                    # Check if the UE is detected, initialize a list if not
+                    if ue_id_str not in sensor.logs:
+                        sensor.logs[ue_id_str] = [self.current_time]
                     else:
-                        # If the UE has already been detected, append the current time to its list of timestamps
-                        sensor.logs[ue.ue_id].append(self.current_time)
+                        # If the UE has already been detected, append the current time
+                        sensor.logs[ue_id_str].append(self.current_time)
+
 
     def step(self, actions: Dict[int, int]):
         assert not self.time_is_up, "step() called on terminated episode"

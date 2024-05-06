@@ -124,3 +124,7 @@ class Monitor:
         ss_info = {name: values[-1] for name, values in self.ss_results.items()}
 
         return {**scalar_info, **ue_info, **bs_info, **ss_info}
+
+    def sensor_measurements(simulation):
+    # Implementation that uses the simulation object
+        pass

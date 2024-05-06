@@ -29,3 +29,4 @@ class MComSmartCity(MComCore):
         
 
         super().__init__(stations, ues, sensors, config, render_mode)
+        self.time_step = 1

@@ -87,6 +87,12 @@ class Sensor:
     @property
     def point(self):
         return Point(int(self.x), int(self.y))
+    
+    def configure_sensors(self, sensors):
+        for sensor in sensors:
+            if not isinstance(sensor.logs, dict):
+                sensor.logs = {}
+
 
     def is_within_range(self, ue_point):
         """Check if a UE is within the sensor's range."""
