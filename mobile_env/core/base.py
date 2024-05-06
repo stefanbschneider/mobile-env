@@ -143,7 +143,7 @@ class MComCore(gymnasium.Env):
                 "snr_tr": 2e-8,
                 "range": 0,
                 "velocity": 0,
-                "logs": "",
+                "logs": {},
             }          
         }
 
