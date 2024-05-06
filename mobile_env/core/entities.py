@@ -1,6 +1,6 @@
 from typing import Tuple
 from shapely.geometry import Point
-from queues import Buffer
+from mobile_env.core.bufferss import Buffer
 
 
 class BaseStation:

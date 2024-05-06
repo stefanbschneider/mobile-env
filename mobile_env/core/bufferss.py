@@ -1,6 +1,8 @@
-from multiprocessing import Process, Queue
+import queue
 import random
 from time import sleep
+from multiprocessing import Queue, Process
+import signal
 
 class Buffer:
     def __init__(self, queue):
@@ -51,6 +53,11 @@ def consumer(buffer):
         buffer.get()
         sleep(1)  # Sleep to simulate processing time
 
+def signal_handler(signum, frame):
+    print("Signal received, terminating processes.")
+    producer_process.terminate()
+    consumer_process.terminate()
+
 if __name__ == "__main__":
     # Create a multiprocessing Queue
     queue = Queue()
@@ -62,10 +69,13 @@ if __name__ == "__main__":
     producer_process = Process(target=producer, args=(shared_buffer,))
     consumer_process = Process(target=consumer, args=(shared_buffer,))
 
+    # Setup signal handling
+    signal.signal(signal.SIGINT, signal_handler)
+
     # Start the processes
     producer_process.start()
     consumer_process.start()
 
-    # Wait for the processes to finish (they won't in this setup unless you define a stopping condition)
+    # Wait for the processes to finish (they won't unless interrupted)
     producer_process.join()
     consumer_process.join()

@@ -15,6 +15,7 @@ class TestCentralEnvs(unittest.TestCase):
 
     def test_central_large(self):
         check_env(gymnasium.make("mobile-large-central-v0"))
+        
     def test_central_smart_city(self):
         check_env(gymnasium.make("mobile-smart_city-central-v0"))
 

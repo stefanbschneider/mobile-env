@@ -21,7 +21,7 @@ from mobile_env.core.schedules import ResourceFair
 from mobile_env.core.util import BS_SYMBOL, SENSOR_SYMBOL, deep_dict_merge
 from mobile_env.core.utilities import BoundedLogUtility
 from mobile_env.handlers.central import MComCentralHandler
-from queues import Buffer
+from mobile_env.core.bufferss import Buffer
 
 
 class MComCore(gymnasium.Env):
@@ -259,9 +259,9 @@ class MComCore(gymnasium.Env):
         # store latest monitored results in `info` dictionary
         info = {**info, **self.monitor.info()}
 
-        #reset the sensor's logs 
-        for sensor in self.sensors.values():
-            sensor.logs.clear()
+        # #reset the sensor's logs 
+        # for sensor in self.sensors.values():
+        #     sensor.logs.clear()
         
         
         return self.handler.observation(self), info
@@ -655,16 +655,20 @@ class MComCore(gymnasium.Env):
         else:
             raise ValueError("Invalid rendering mode.")
     
-    def add_packets(data_packets):
-        data_packets = []
-        for packet in data_packets:
-            if not BaseStation.data_buffer.is_full():
-                BaseStation.data_buffer.add(packet)
-    
-    def remove_packets():
-        while not BaseStation.size.is_empty:
-            data = BaseStation.data_buffer.get()
-            return data
+        def add_packets(self, data_packets):
+            for packet in data_packets:
+                if self.data_buffer_uplink.full():
+                    print("Buffer is full, cannot add more packets")
+                    break
+                self.data_buffer_uplink.put(packet)
+                print(f"Added packet to buffer: {packet}")
+
+        def remove_packets(self):
+            while not self.data_buffer_uplink.empty():
+                data = self.data_buffer_uplink.get()
+                print(f"Removed packet from buffer: {data}")
+                return data  # Note: This will exit the function after the first packet is removed
+
 
     def render_simulation(self, ax) -> None:
         colormap = cm.get_cmap("RdYlGn")
