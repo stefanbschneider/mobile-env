@@ -10,6 +10,8 @@ import pygame
 from matplotlib import cm
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from pygame import Surface
+import random
+import logging
 
 from mobile_env.core import metrics
 from mobile_env.core.arrival import NoDeparture
@@ -21,7 +23,7 @@ from mobile_env.core.schedules import ResourceFair
 from mobile_env.core.util import BS_SYMBOL, SENSOR_SYMBOL, deep_dict_merge
 from mobile_env.core.utilities import BoundedLogUtility
 from mobile_env.handlers.central import MComCentralHandler
-from mobile_env.core.bufferss import Buffer
+from mobile_env.core.buffers import Buffer, Packet
 
 
 class MComCore(gymnasium.Env):
@@ -30,6 +32,8 @@ class MComCore(gymnasium.Env):
 
     def __init__(self, stations, users, sensors, config={}, render_mode=None):
         super().__init__()
+
+        logging.basicConfig(filename='simulation.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
         self.render_mode = render_mode
         assert render_mode in self.metadata["render_modes"] + [None]
@@ -316,6 +320,82 @@ class MComCore(gymnasium.Env):
                         # If the UE has already been detected, append the current time
                         sensor.logs[ue_id_str].append(self.current_time)
 
+    def generate_packet(self, ue: UserEquipment) -> None:
+        # Simulate packet generation based on Bernoulli principle
+        if random.random() < 0.5:  # Example probability
+            packet = Packet()
+            packet.creation_time = self.time
+            if ue.data_buffer_uplink.add(packet):
+                logging.info(f"Time step: {self.time} Packet generated: {packet.index} at time: {packet.creation_time} by device {ue} with initial size of {packet.initial_size} and remaining size of {packet.remaining_size}")
+
+    def transfer_data(self) -> None:
+        """Transfers data from devices to base stations according to data rates."""
+        for bs, ues in self.connections.items():
+            for ue in ues:
+                if ue.data_buffer_uplink.data_queue.qsize() > 0:
+                    # Get the first packet in the queue without removing it
+                    packet = ue.data_buffer_uplink.data_queue.queue[0]
+
+                    # Check data rate for the connection
+                    data_rate = self.datarates.get((bs, ue), 0)
+                    if data_rate <= 0:
+                        logging.warning(f"No data rate for connection with base station {bs} for device {ue}. Packet transmission aborted.")
+                        continue
+
+                    # Update the start of serving time if no bits served 
+                    if packet.initial_size == packet.remaining_size:
+                        packet.serving_time_start = self.time
+
+                    # Calculate the amount of bits to send based on data rate
+                    bits_to_send = min(packet.remaining_size, data_rate)
+
+                    # Update remaining size of the packet
+                    packet.update_packet_size(bits_to_send)
+
+                    # Log the transmission start
+                    logging.info(f"Time step: {self.time} Device: {ue}, Base Station: {bs}, index: {packet.index} "
+                                f"Bits sent: {bits_to_send}, Remaining size: {packet.remaining_size}")
+
+                    # Check if all bits are sent
+                    if packet.remaining_size <= 0:
+                        # Remove packet from device queue
+                        ue.data_buffer_uplink.get()
+                        # Put packet into base station queue
+                        bs.data_buffer_uplink.add(packet)
+                        # Update base station number, time step, etc.
+                        packet.serving_bs = bs
+                        packet.serving_time_end = self.time
+                        packet.serving_time_total = packet.serving_time_end - packet.serving_time_start
+                        logging.info(f"Time step: {self.time} Packet {packet.index} transferred from device {ue} to base station {bs} with serving time {packet.serving_time_total}.")
+
+                    else:
+                        logging.info(f"Time step: {self.time} Packet {packet.index} partially transferred from device {ue} to base station {bs}.")
+
+    def log_connections(self):
+        """Logs connections between bs and ues."""
+        for bs, ues in self.connections.items():
+            if ues:
+                connected_devices = ", ".join([str(ue) for ue in ues])
+                logging.info(f"Time step: {self.time} Devices {connected_devices} connected to {bs}")
+
+    def log_datarates(self):
+        """Logs datarates of each connected ue-bs pair."""
+        for (bs, ue), rate in self.datarates.items():
+            logging.info(f"Time step: {self.time} Data rate for {ue} connected to {bs} is : {rate}")
+
+    def log_device_uplink_queues(self):
+        """Logs the packet indexes, initial sizes, and remaining sizes for every packet in the uplink buffer of ues."""
+        for ue in self.users.values():
+            if ue.data_buffer_uplink:
+                for packet in list(ue.data_buffer_uplink.data_queue.queue):
+                    logging.info(f"Time step: {self.time} Device: {ue}, Packet index: {packet.index}, Initial size: {packet.initial_size}, Remaining size: {packet.remaining_size}")
+
+    def log_bs_queue(self):
+        """Logs the packet indexes, initial sizes, and remaining sizes for every packet in the bs queues."""
+        for bs in self.stations.values():
+            if bs.data_buffer_uplink:
+                for packet in list(bs.data_buffer_uplink.data_queue.queue):
+                    logging.info(f"Time step: {self.time} Base station: {bs}, Packet index: {packet.index}, Initial size: {packet.initial_size}, Remaining size: {packet.remaining_size}")
 
     def step(self, actions: Dict[int, int]):
         assert not self.time_is_up, "step() called on terminated episode"
@@ -327,6 +407,11 @@ class MComCore(gymnasium.Env):
         self.update_connections()
         self.update_positions()
 
+        # Generate packets for each UE
+        logging.info(f"Time step: {self.time} --------- Package Generation ---------- ")
+        for ue in self.users.values():
+            self.generate_packet(ue)
+
         # TODO: add penalties for changing connections?
         for ue_id, action in actions.items():
             self.apply_action(action, self.users[ue_id])
@@ -336,6 +421,27 @@ class MComCore(gymnasium.Env):
         for bs in self.stations.values():
             drates = self.station_allocation(bs)
             self.datarates.update(drates)
+
+        # Log connections between devices and base stations after scheduling
+        logging.info(f"Time step: {self.time} --------- After re-scheduling ----------------- ")
+        logging.info(f"Time step: {self.time} --------- Connections ------------------------- ")
+        self.log_connections()
+        logging.info(f"Time step: {self.time} --------- Data rates -------------------------- ")
+        self.log_datarates()
+        logging.info(f"Time step: {self.time} --------- UE queues --------------------------- ")
+        self.log_device_uplink_queues()
+        logging.info(f"Time step: {self.time} --------- BS queues --------------------------- ")
+        self.log_bs_queue()
+
+        # Packet transmission
+        logging.info(f"Time step: {self.time} --------- Packet transmission starting -------- ")
+        self.transfer_data()
+        logging.info(f"Time step: {self.time} --------- Packet transmission over ------------ ")
+        logging.info(f"Time step: {self.time} --------- After packet transmission ----------- ")
+        logging.info(f"Time step: {self.time} --------- UE queues --------------------------- ")
+        self.log_device_uplink_queues()
+        logging.info(f"Time step: {self.time} --------- BS queues --------------------------- ")
+        self.log_bs_queue()
 
         # update macro (aggregated) data rates for each UE
         self.macro = self.macro_datarates(self.datarates)
@@ -657,21 +763,6 @@ class MComCore(gymnasium.Env):
 
         else:
             raise ValueError("Invalid rendering mode.")
-    
-        def add_packets(self, data_packets):
-            for packet in data_packets:
-                if self.data_buffer_uplink.full():
-                    print("Buffer is full, cannot add more packets")
-                    break
-                self.data_buffer_uplink.put(packet)
-                print(f"Added packet to buffer: {packet}")
-
-        def remove_packets(self):
-            while not self.data_buffer_uplink.empty():
-                data = self.data_buffer_uplink.get()
-                print(f"Removed packet from buffer: {data}")
-                return data  # Note: This will exit the function after the first packet is removed
-
 
     def render_simulation(self, ax) -> None:
         colormap = cm.get_cmap("RdYlGn")
@@ -737,7 +828,7 @@ class MComCore(gymnasium.Env):
                     zorder=-1,
                 )
 
-        for sensor in self.sensors.values():
+        """for sensor in self.sensors.values():
             # plot sensor symbol and annonate by its sensor ID
             ax.plot(
                 sensor.point.x,
@@ -756,7 +847,7 @@ class MComCore(gymnasium.Env):
                 va="bottom",
                 textcoords="offset points",
                 fontsize="8",
-            )
+            )"""
 
         # remove simulation axis's ticks and spines
         ax.get_xaxis().set_visible(False)
