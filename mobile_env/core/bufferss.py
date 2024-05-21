@@ -79,3 +79,4 @@ if __name__ == "__main__":
     # Wait for the processes to finish (they won't unless interrupted)
     producer_process.join()
     consumer_process.join()
+

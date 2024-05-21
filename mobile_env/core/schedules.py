@@ -23,5 +23,8 @@ class ResourceFair(Scheduler):
 
 class RateFair(Scheduler):
     def share(self, bs: BaseStation, rates: List[float]) -> List[float]:
-        total_inv_rate = sum([1 / rate for rate in rates])
-        return 1 / total_inv_rate
+        if all(rate == 0 for rate in rates):
+            return [0.0] * len(rates)  # Avoid division by zero
+
+        total_inv_rate = sum(1.0 / rate if rate > 0 else 0 for rate in rates)
+        return [(1.0 / rate if rate > 0 else 0) / total_inv_rate for rate in rates]

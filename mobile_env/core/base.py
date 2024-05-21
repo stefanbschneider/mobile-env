@@ -315,7 +315,7 @@ class MComCore(gymnasium.Env):
                     else:
                         # If the UE has already been detected, append the current time
                         sensor.logs[ue_id_str].append(self.current_time)
-
+        # print(type(sensor.logs), sensor.logs)
 
     def step(self, actions: Dict[int, int]):
         assert not self.time_is_up, "step() called on terminated episode"
