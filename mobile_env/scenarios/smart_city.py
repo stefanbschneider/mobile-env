@@ -8,13 +8,12 @@ class MComSmartCity(MComCore):
         # set unspecified parameters to default configuration
         config = deep_dict_merge(self.default_config(), config)
 
-        station_pos = [(75, 50), (125, 50), (50, 100),
-                       (150, 100), (75, 150), (125, 150)]
+        station_pos = [(50, 100), (150, 100)]
         stations = [
             BaseStation(bs_id, pos, **config["bs"])
             for bs_id, pos in enumerate(station_pos)
         ]
-        num_ues = 10
+        num_ues = 5
         ues = [UserEquipment(ue_id, **config["ue"]) for ue_id in range(num_ues)]
 
         sensor_pos = [
@@ -26,7 +25,7 @@ class MComSmartCity(MComCore):
         sensors = [
             Sensor(sensor_id, position, **config["sensor"]) 
             for sensor_id, position in enumerate(sensor_pos)]
-        
+
 
         super().__init__(stations, ues, sensors, config, render_mode)
         self.time_step = 1

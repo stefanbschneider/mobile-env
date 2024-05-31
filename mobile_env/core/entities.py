@@ -1,6 +1,6 @@
 from typing import Tuple
 from shapely.geometry import Point
-from mobile_env.core.bufferss import Buffer
+from mobile_env.core.buffers import Buffer
 
 
 class BaseStation:
@@ -12,7 +12,6 @@ class BaseStation:
         freq: float,
         tx: float,
         height: float,
-        size = 10,
     ):
         # BS ID should be final, i.e., BS ID must be unique
         self.bs_id = bs_id
@@ -21,7 +20,7 @@ class BaseStation:
         self.frequency = freq  # in MHz
         self.tx_power = tx  # in dBm
         self.height = height  # in m
-        self.data_buffer_uplink = Buffer(size) #adding buffer for uplink communicaiton 
+        self.data_buffer_uplink = Buffer()  # adding buffer for uplink communication 
 
     @property
     def point(self):
@@ -39,7 +38,6 @@ class UserEquipment:
         snr_tr: float,
         noise: float,
         height: float,
-        size = 10,
     ):
         # UE ID should be final, i.e., UE ID must be unique
         # NOTE: cannot use Final typing due to support for Python 3.7
@@ -53,13 +51,15 @@ class UserEquipment:
         self.y: float = None
         self.stime: int = None
         self.extime: int = None
-        self.data_buffer_uplink = Buffer(size) 
+        self.data_buffer_uplink = Buffer()
+
     @property
     def point(self):
         return Point(int(self.x), int(self.y))
 
     def __str__(self):
         return f"UE: {self.ue_id}"
+
 
 class Sensor:
     def __init__(
@@ -72,7 +72,6 @@ class Sensor:
             velocity: float,
             radius: float,
             logs: dict[int, int],
-            size = 10,
     ):
         self.sensor_id = sensor_id
         self.x, self.y = pos
@@ -82,21 +81,20 @@ class Sensor:
         self. velocity = velocity
         self.radius = radius
         self.logs = logs
-        self.data_buffer_1 = Buffer(size)
+        self.data_buffer_uplink = Buffer()
 
     @property
     def point(self):
         return Point(int(self.x), int(self.y))
-    
+
     def configure_sensors(self, sensors):
         for sensor in sensors:
             if not isinstance(sensor.logs, dict):
                 sensor.logs = {}
 
-
     def is_within_range(self, ue_point):
         """Check if a UE is within the sensor's range."""
         return self.point.distance(ue_point) <= self.radius
-    
+
     def __str__(self):
         return f"Sensor: {self.sensor_id}"
