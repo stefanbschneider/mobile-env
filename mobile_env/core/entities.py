@@ -81,6 +81,7 @@ class Sensor:
         self. velocity = velocity
         self.radius = radius
         self.logs = logs
+        self.connected_base_station = BaseStation
         self.data_buffer_uplink = Buffer()
 
     @property
