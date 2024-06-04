@@ -18,9 +18,10 @@ class Buffer:
         self.current_size = 0
 
     def add(self, packet):
-        try: 
-            self.data_queue.put(packet)
-            print(f"Added to Buffer: {packet.index}")
+        if self.current_size < self.size:
+            self.data_queue[self.current_size] = packet
+            self.current_size += 1
+            logging.info(f"Packet added to buffer: {packet['index']}")
             return True
         else:
             logging.warning("Buffer is full, packet dropped!")
@@ -55,6 +56,21 @@ class PacketGenerator:
         # Generate bits for packets following Poisson distribution with lambda
         return np.random.poisson(lam=3)
 
+    @classmethod
+    def create_packet(cls, current_time):
+        index = cls.generate_index()
+        initial_size = cls.generate_data()
+        packet = np.array((index, initial_size, initial_size, current_time, -1, -1, -1, -1),
+                          dtype=[('index', 'i4'),
+                                 ('initial_size', 'f4'),
+                                 ('remaining_size', 'f4'),
+                                 ('creation_time', 'f4'),
+                                 ('serving_bs', 'i4'),
+                                 ('serving_time_start', 'f4'),
+                                 ('serving_time_end', 'f4'),
+                                 ('serving_time_total', 'f4')])
+        return packet
+    
     def update_packet_size(self, data_rate):
         # Subtract data rate from remaining_size
         self.remaining_size -= data_rate
@@ -62,8 +78,7 @@ class PacketGenerator:
         # Ensure remaining_size does not go below zero
         if self.remaining_size < 0:
             self.remaining_size = 0
-
-
+ 
 
 """
 def producer(buffer):
