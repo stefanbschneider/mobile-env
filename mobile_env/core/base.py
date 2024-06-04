@@ -19,7 +19,7 @@ from mobile_env.core.channels import OkumuraHata
 from mobile_env.core.entities import BaseStation, UserEquipment, Sensor
 from mobile_env.core.monitoring import Monitor
 from mobile_env.core.movement import RandomWaypointMovement
-from mobile_env.core.schedules import ResourceFair
+from mobile_env.core.schedules import ResourceFair, RateFair, ProportionalFair, RoundRobin
 from mobile_env.core.util import BS_SYMBOL, SENSOR_SYMBOL, deep_dict_merge
 from mobile_env.core.utilities import BoundedLogUtility
 from mobile_env.handlers.central import MComCentralHandler
@@ -144,12 +144,12 @@ class MComCore(gymnasium.Env):
             # used simulation models:
             "arrival": NoDeparture,
             "channel": OkumuraHata,
-            "scheduler": ResourceFair,
+            "scheduler": RateFair,
             "movement": RandomWaypointMovement,
             "utility": BoundedLogUtility,
             "handler": MComCentralHandler,
             # default cell config
-            "bs": {"bw": 9e6, "freq": 2500, "tx": 30, "height": 50},
+            "bs": {"bw": 20e6, "freq": 2500, "tx": 40, "height": 50},
             # default UE config
             "ue": {
                 "velocity": 1.5,
@@ -293,18 +293,23 @@ class MComCore(gymnasium.Env):
 
     def apply_action(self, action: int, ue: UserEquipment) -> None:
         """Connect or disconnect `ue` to/from basestation `action`."""
-        # do not apply update to connections if NOOP_ACTION is selected
+        # Do not apply update to connections if NOOP_ACTION is selected
         if action == self.NOOP_ACTION or ue not in self.active:
             return
 
-        bs = self.stations[action - 1]
-        # disconnect to basestation if user equipment already connected
-        if ue in self.connections[bs]:
-            self.connections[bs].remove(ue)
+        # Disconnect the UE from its current BS, if any
+        for bs in self.connections:
+            if ue in self.connections[bs]:
+                self.connections[bs].remove(ue)
+                logging.info(f"UE {ue} disconnected from BS {bs}")
 
-        # establish connection if user equipment not connected but reachable
-        elif self.check_connectivity(bs, ue):
+        bs = self.stations[action - 1]
+
+    # Establish connection if user equipment not connected but reachable
+        if self.check_connectivity(bs, ue):
             self.connections[bs].add(ue)
+            logging.info(f"UE {ue} connected to BS {bs}")
+            
 
     def check_connectivity(self, bs: BaseStation, ue: UserEquipment) -> bool:
         """Connection can be established if SNR exceeds threshold of UE."""
@@ -384,7 +389,7 @@ class MComCore(gymnasium.Env):
                     packet = ue.data_buffer_uplink.get()
 
                     # Check data rate for the connection
-                    data_rate = self.datarates.get((bs, ue), 0)
+                    data_rate = self.datarates.get((bs, ue), 1e6)
                     if data_rate <= 0:
                         logging.warning(f"No data rate for connection with base station {bs} for device {ue}. Packet transmission aborted.")
                         continue

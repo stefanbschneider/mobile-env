@@ -18,10 +18,9 @@ class Buffer:
         self.current_size = 0
 
     def add(self, packet):
-        if self.current_size < self.size:
-            self.data_queue[self.current_size] = packet
-            self.current_size += 1
-            logging.info(f"Packet added to buffer: {packet['index']}")
+        try: 
+            self.data_queue.put(packet)
+            print(f"Added to Buffer: {packet.index}")
             return True
         else:
             logging.warning("Buffer is full, packet dropped!")
@@ -55,19 +54,54 @@ class PacketGenerator:
     def generate_data():
         # Generate bits for packets following Poisson distribution with lambda
         return np.random.poisson(lam=3)
-    
-    @classmethod
-    def create_packet(cls, current_time):
-        index = cls.generate_index()
-        initial_size = cls.generate_data()
-        packet = np.array((index, initial_size, initial_size, current_time, -1, -1, -1, -1),
-                          dtype=[('index', 'i4'),
-                                 ('initial_size', 'f4'),
-                                 ('remaining_size', 'f4'),
-                                 ('creation_time', 'f4'),
-                                 ('serving_bs', 'i4'),
-                                 ('serving_time_start', 'f4'),
-                                 ('serving_time_end', 'f4'),
-                                 ('serving_time_total', 'f4')])
-        return packet
 
+    def update_packet_size(self, data_rate):
+        # Subtract data rate from remaining_size
+        self.remaining_size -= data_rate
+
+        # Ensure remaining_size does not go below zero
+        if self.remaining_size < 0:
+            self.remaining_size = 0
+
+
+
+"""
+def producer(buffer):
+    while True:
+        packet = Packets()
+        packet.queue_update(buffer)
+        sleep(1)  # Sleep to simulate time between packet generation
+
+def consumer(buffer):
+    while True:
+        buffer.get()
+        sleep(1)  # Sleep to simulate processing time
+
+def signal_handler(signum, frame):
+    print("Signal received, terminating processes.")
+    producer_process.terminate()
+    consumer_process.terminate()
+
+if __name__ == "__main__":
+    # Create a multiprocessing Queue
+    queue = Queue()
+
+    # Create a buffer object with the multiprocessing Queue
+    shared_buffer = Buffer(queue)
+
+    # Create producer and consumer processes
+    producer_process = Process(target=producer, args=(shared_buffer,))
+    consumer_process = Process(target=consumer, args=(shared_buffer,))
+
+    # Setup signal handling
+    signal.signal(signal.SIGINT, signal_handler)
+
+    # Start the processes
+    producer_process.start()
+    consumer_process.start()
+
+    # Wait for the processes to finish (they won't unless interrupted)
+    producer_process.join()
+    consumer_process.join()
+
+"""
