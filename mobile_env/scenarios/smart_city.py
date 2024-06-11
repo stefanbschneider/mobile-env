@@ -1,7 +1,7 @@
 from mobile_env.core.base import MComCore
 from mobile_env.core.entities import BaseStation, UserEquipment, Sensor
 from mobile_env.core.util import deep_dict_merge
-
+import random
 
 class MComSmartCity(MComCore):
     def __init__(self, config={}, render_mode=None):
@@ -15,14 +15,12 @@ class MComSmartCity(MComCore):
         ]
         num_ues = 3
         ues = [UserEquipment(ue_id, **config["ue"]) for ue_id in range(num_ues)]
-
-        sensor_pos = [
-            (50, 50), (80, 50), (110, 50), (140, 50), (170, 50),
-            (50, 80), (80, 80), (110, 80), (140, 80), (170, 80),
-            (50, 110), (80, 110), (110, 110), (140, 110), (170, 110),
-            (50, 140), (80, 140), (110, 140), (140, 140), (170, 140),
-            (50, 170), (80, 170), (110, 170), (140, 170), (170, 170)]
+        width = 150
+        height = 150
+        num_sensors = 25
         
+        sensor_pos = [(random.randint(0, width), random.randint(0, height)) for _ in range(num_sensors)]
+  
         sensors = [
             Sensor(sensor_id, position, **config["sensor"]) 
             for sensor_id, position in enumerate(sensor_pos)]

@@ -98,6 +98,3 @@ class RoundRobin(Scheduler):
             allocation = [alloc * total_resources / total_allocated for alloc in allocation]
 
         return allocation
-
-
-
