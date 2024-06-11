@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Ohri"
+  given-names: "Elif"
+  affiliation: "Sorbonne University"
+- family-names: "Bazzi"
+  given-names: "Amir"
+title: "mobile-env"
+version: 1.0.0
+date-released: 2024-06-06
+url: "https://github.com/elifohri/mobile-env"
