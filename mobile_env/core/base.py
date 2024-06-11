@@ -144,7 +144,7 @@ class MComCore(gymnasium.Env):
             # used simulation models:
             "arrival": NoDeparture,
             "channel": OkumuraHata,
-            "scheduler": RateFair,
+            "scheduler": RoundRobin,
             "movement": RandomWaypointMovement,
             "utility": BoundedLogUtility,
             "handler": MComCentralHandler,
@@ -172,7 +172,7 @@ class MComCore(gymnasium.Env):
         aparams = {"ep_time": ep_time, "reset_rng_episode": False}
         config.update({"arrival_params": aparams})
         config.update({"channel_params": {}})
-        config.update({"scheduler_params": {}})
+        config.update({"scheduler_params": {"quantum": 2.0}})
         mparams = {
             "width": width,
             "height": height,
@@ -310,7 +310,12 @@ class MComCore(gymnasium.Env):
             self.connections[bs].add(ue)
             logging.info(f"UE {ue} connected to BS {bs}")
             
-
+    def check_connectivity_ss(self, bs: BaseStation, ss: Sensor) -> bool:
+        '''This function should return the connectivity between Sensors and base sstations'''
+        pass
+        
+        
+        
     def check_connectivity(self, bs: BaseStation, ue: UserEquipment) -> bool:
         """Connection can be established if SNR exceeds threshold of UE."""
         snr = self.channel.snr(bs, ue)

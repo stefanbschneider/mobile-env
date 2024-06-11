@@ -53,21 +53,51 @@ class ProportionalFair(Scheduler):
         return [(metric / total_pf_metric) * bs.total_resources for metric in pf_metric]
 
 class RoundRobin(Scheduler):
-    def __init__(self):
-        self.last_served_index = -1
+    def __init__(self, quantum: float = 1.0, **kwargs):
+        super().__init__()
+        self.last_served_index = {}
+        self.quantum = quantum
+
+    def reset(self):
+        self.last_served_index.clear()
 
     def share(self, bs: BaseStation, rates: List[float]) -> List[float]:
         if not rates:
             return []
 
         num_ues = len(rates)
-        allocation = [0] * num_ues
-        resources_per_ue = bs.total_resources / num_ues
+        if bs.bs_id not in self.last_served_index:
+            self.last_served_index[bs.bs_id] = -1
 
-        for i in range(num_ues):
-            self.last_served_index = (self.last_served_index + 1) % num_ues
-            allocation[self.last_served_index] = min(resources_per_ue, rates[self.last_served_index])
+        allocation = [0] * num_ues
+        rem_rates = rates[:]
+        total_resources = bs.bw  # Assuming 'bandwidth' represents the total resources
+        t = 0  # Current time for resource allocation
+
+        while True:
+            done = True
+
+            for i in range(num_ues):
+                if rem_rates[i] > 0:
+                    done = False  # There is a pending process
+                    if rem_rates[i] > self.quantum:
+                        t += self.quantum
+                        allocation[i] += self.quantum
+                        rem_rates[i] -= self.quantum
+                    else:
+                        t += rem_rates[i]
+                        allocation[i] += rem_rates[i]
+                        rem_rates[i] = 0
+
+            if done:
+                break
+
+        # Normalize the allocation based on the total resources available
+        total_allocated = sum(allocation)
+        if total_allocated > total_resources:
+            allocation = [alloc * total_resources / total_allocated for alloc in allocation]
 
         return allocation
+
 
 
