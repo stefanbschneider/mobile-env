@@ -20,7 +20,7 @@ class BaseStation:
         self.frequency = freq  # in MHz
         self.tx_power = tx  # in dBm
         self.height = height  # in m
-        self.data_buffer_uplink = Buffer()  # adding buffer for uplink communication 
+        self.data_buffer_uplink = Buffer(size=100)  # adding buffer for uplink communication 
 
     @property
     def point(self):
@@ -51,7 +51,7 @@ class UserEquipment:
         self.y: float = None
         self.stime: int = None
         self.extime: int = None
-        self.data_buffer_uplink = Buffer()
+        self.data_buffer_uplink = Buffer(size=100)
 
     @property
     def point(self):
@@ -68,7 +68,7 @@ class Sensor:
             pos: Tuple[float, float],
             height: float,
             snr_tr: float,
-            range: float,
+            noise: float,
             velocity: float,
             radius: float,
             logs: dict[int, int],
@@ -77,12 +77,12 @@ class Sensor:
         self.x, self.y = pos
         self.height = height
         self.snr_threshold = snr_tr
-        self.range = range
-        self. velocity = velocity
+        self.noise = noise
+        self.velocity = velocity
         self.radius = radius
         self.logs = logs
         self.connected_base_station = BaseStation
-        self.data_buffer_uplink = Buffer()
+        self.data_buffer_uplink = Buffer(size=100)
 
     @property
     def point(self):

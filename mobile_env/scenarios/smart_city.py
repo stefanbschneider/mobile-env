@@ -17,7 +17,7 @@ class MComSmartCity(MComCore):
         ues = [UserEquipment(ue_id, **config["ue"]) for ue_id in range(num_ues)]
         width = 150
         height = 150
-        num_sensors = 25
+        num_sensors = 5
         
         sensor_pos = [(random.randint(0, width), random.randint(0, height)) for _ in range(num_sensors)]
   

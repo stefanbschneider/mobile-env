@@ -1,122 +1,79 @@
 from queue import Queue
 import numpy as np
 import logging
+from typing import Dict, Optional
+
+# type for the job data dictionary
+Job = Dict[str, Optional[float]]
 
 class Buffer:
     def __init__(self, size=100):
         self.size = size
-        self.data_queue = np.zeros(size, dtype=[
-            ('index', 'i4'),
-            ('initial_size', 'f4'),
-            ('remaining_size', 'f4'),
-            ('creation_time', 'f4'),
-            ('serving_bs', 'i4'),
-            ('serving_time_start', 'f4'),
-            ('serving_time_end', 'f4'),
-            ('serving_time_total', 'f4')
-        ])
-        self.current_size = 0
-
-    def add(self, packet):
-        if self.current_size < self.size:
-            self.data_queue[self.current_size] = packet
-            self.current_size += 1
-            logging.info(f"Packet added to buffer: {packet['index']}")
+        self.data_queue: Queue[Job] = Queue(maxsize=size)
+    
+    def add_job(self, job: Job) -> bool:
+        if not self.data_queue.full():
+            self.data_queue.put(job)
+            logging.info(f"Job index {job['index']} added to the buffer.")
             return True
         else:
-            logging.warning("Buffer is full, packet dropped!")
+            logging.warning("Buffer is full, job dropped!")
+            return False
 
-    def remove(self):
-        if self.current_size > 0:
-            packet = self.data_queue[0]
-            self.data_queue = np.delete(self.data_queue, 0)
-            self.current_size -= 1
-            return packet
+    def remove_job(self) -> Optional[Job]:
+        if not self.data_queue.empty():
+            job = self.data_queue.get()
+            return job
         else:
             logging.warning("Buffer is empty!")
             return None
 
-    def get(self):
-        if self.current_size > 0:
-            return self.data_queue[0]
+    def get_job(self) -> Optional[Job]:
+        if not self.data_queue.empty():
+            return self.data_queue.queue[0]
         else:
             return None
 
 
-class PacketGenerator:
-    counter = 0 # Class variable to keep track of the number of packets
+class JobGenerator:
+    counter: int = 0 # Class variable to keep track of the number of jobs
 
     @classmethod
-    def generate_index(cls):
+    def generate_index(cls) -> int:
         cls.counter += 1
         return cls.counter
     
     @staticmethod
-    def generate_data():
-        # Generate bits for packets following Poisson distribution with lambda
-        return np.random.poisson(lam=3)
+    def generate_data(device_type: str) -> float:
+        # Generate bits for jobs following Poisson distribution based on device type
+        if device_type == 'sensor':
+            return np.random.poisson(lam=5)    # MB per second
+        elif device_type == 'user_device':
+            return np.random.poisson(lam=15)   # MB per second
+        else:
+            raise ValueError("Unknown device type")
 
     @classmethod
-    def create_packet(cls, current_time):
+    def create_job(cls, time: float, device_type: str) -> Job:
+        # Generate jobs for the sensors and ues
         index = cls.generate_index()
-        initial_size = cls.generate_data()
-        packet = np.array((index, initial_size, initial_size, current_time, -1, -1, -1, -1),
-                          dtype=[('index', 'i4'),
-                                 ('initial_size', 'f4'),
-                                 ('remaining_size', 'f4'),
-                                 ('creation_time', 'f4'),
-                                 ('serving_bs', 'i4'),
-                                 ('serving_time_start', 'f4'),
-                                 ('serving_time_end', 'f4'),
-                                 ('serving_time_total', 'f4')])
-        return packet
+        initial_size = cls.generate_data(device_type)
+        job = {
+            'index': index,
+            'initial_size': initial_size,
+            'remaining_size': initial_size,
+            'creation_time': time,
+            'serving_bs': None,
+            'serving_time_start': None,
+            'serving_time_end': None,
+            'serving_time_total': None
+        }
+        return job
     
-    def update_packet_size(self, data_rate):
-        # Subtract data rate from remaining_size
-        self.remaining_size -= data_rate
-
-        # Ensure remaining_size does not go below zero
-        if self.remaining_size < 0:
-            self.remaining_size = 0
+    @staticmethod
+    def update_job_size(job: Job, data_rate: float) -> Job:
+        job['remaining_size'] -= data_rate
+        if job['remaining_size'] < 0:
+            job['remaining_size'] = 0
+        return job
  
-
-"""
-def producer(buffer):
-    while True:
-        packet = Packets()
-        packet.queue_update(buffer)
-        sleep(1)  # Sleep to simulate time between packet generation
-
-def consumer(buffer):
-    while True:
-        buffer.get()
-        sleep(1)  # Sleep to simulate processing time
-
-def signal_handler(signum, frame):
-    print("Signal received, terminating processes.")
-    producer_process.terminate()
-    consumer_process.terminate()
-
-if __name__ == "__main__":
-    # Create a multiprocessing Queue
-    queue = Queue()
-
-    # Create a buffer object with the multiprocessing Queue
-    shared_buffer = Buffer(queue)
-
-    # Create producer and consumer processes
-    producer_process = Process(target=producer, args=(shared_buffer,))
-    consumer_process = Process(target=consumer, args=(shared_buffer,))
-
-    # Setup signal handling
-    signal.signal(signal.SIGINT, signal_handler)
-
-    # Start the processes
-    producer_process.start()
-    consumer_process.start()
-
-    # Wait for the processes to finish (they won't unless interrupted)
-    producer_process.join()
-    consumer_process.join()
-
-"""

@@ -1,12 +1,13 @@
 from abc import abstractmethod
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Union
 
 import numpy as np
 
-from mobile_env.core.entities import BaseStation, UserEquipment
+from mobile_env.core.entities import BaseStation, UserEquipment, Sensor
 
 EPSILON = 1e-16
 
+Device = Union[UserEquipment, Sensor]
 
 class Channel:
     def __init__(self, **kwargs):
@@ -16,15 +17,15 @@ class Channel:
         pass
 
     @abstractmethod
-    def power_loss(self, bs: BaseStation, ue: UserEquipment) -> float:
-        """Calculate power loss for transmission between BS and UE."""
+    def power_loss(self, bs: BaseStation, device: Device) -> float:
+        """Calculate power loss for transmission between BS and a device (UE or sensor)."""
         pass
 
-    def snr(self, bs: BaseStation, ue: UserEquipment):
-        """Calculate SNR for transmission between BS and UE."""
-        loss = self.power_loss(bs, ue)
+    def snr(self, bs: BaseStation, device: Device):
+        """Calculate SNR for transmission between BS and a device (UE or sensor)."""
+        loss = self.power_loss(bs, device)
         power = 10 ** ((bs.tx_power - loss) / 10)
-        return power / ue.noise
+        return power / device.noise
 
     def isoline(
         self,
@@ -70,9 +71,9 @@ class Channel:
         return xs, ys
 
     @classmethod
-    def datarate(cls, bs: BaseStation, ue: UserEquipment, snr: float):
-        """Calculate max. data rate for transmission between BS and UE."""
-        if snr > ue.snr_threshold:
+    def datarate(cls, bs: BaseStation, device: Device, snr: float):
+        """Calculate max. data rate for transmission between BS and a device (UE or sensor)."""
+        if snr > device.snr_threshold:
             return bs.bw * np.log2(1 + snr)
 
         return 0.0
@@ -125,12 +126,12 @@ class Channel:
 
 
 class OkumuraHata(Channel):
-    def power_loss(self, bs: BaseStation, ue: UserEquipment):
-        distance = bs.point.distance(ue.point)
+    def power_loss(self, bs: BaseStation, device: Device):
+        distance = bs.point.distance(device.point)
 
         ch = (
             0.8
-            + (1.1 * np.log10(bs.frequency) - 0.7) * ue.height
+            + (1.1 * np.log10(bs.frequency) - 0.7) * device.height
             - 1.56 * np.log10(bs.frequency)
         )
         tmp_1 = (

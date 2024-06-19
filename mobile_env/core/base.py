@@ -1,6 +1,6 @@
 import string
 from collections import Counter, defaultdict
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Set, Tuple, Optional
 
 import gymnasium
 import matplotlib.patheffects as pe
@@ -23,7 +23,7 @@ from mobile_env.core.schedules import ResourceFair, RateFair, ProportionalFair, 
 from mobile_env.core.util import BS_SYMBOL, SENSOR_SYMBOL, deep_dict_merge
 from mobile_env.core.utilities import BoundedLogUtility
 from mobile_env.handlers.central import MComCentralHandler
-from mobile_env.core.buffers import Buffer, PacketGenerator
+from mobile_env.core.buffers import Buffer, JobGenerator
 
 
 class MComCore(gymnasium.Env):
@@ -159,10 +159,10 @@ class MComCore(gymnasium.Env):
             },
             # default Sensor config
             "sensor": {
-                "height": 30,
+                "height": 1.5,
                 "radius": 5,
                 "snr_tr": 2e-8,
-                "range": 0,
+                "noise": 1e-9,
                 "velocity": 0,
                 "logs": {},
             }          
@@ -309,17 +309,16 @@ class MComCore(gymnasium.Env):
         if self.check_connectivity(bs, ue):
             self.connections[bs].add(ue)
             logging.info(f"UE {ue} connected to BS {bs}")
-            
-    def check_connectivity_ss(self, bs: BaseStation, ss: Sensor) -> bool:
-        '''This function should return the connectivity between Sensors and base sstations'''
-        pass
-        
-        
         
     def check_connectivity(self, bs: BaseStation, ue: UserEquipment) -> bool:
         """Connection can be established if SNR exceeds threshold of UE."""
         snr = self.channel.snr(bs, ue)
         return snr > ue.snr_threshold
+    
+    def check_connectivity_sensor(self, bs: BaseStation, sensor: Sensor) -> bool:
+        """Connection can be established if SNR exceeds threshold of sensor."""
+        snr = self.channel.snr(bs, sensor)
+        return snr > sensor.snr_threshold
 
     def available_connections(self, ue: UserEquipment) -> Set:
         """Returns set of what base stations users could connect to."""
@@ -334,6 +333,15 @@ class MComCore(gymnasium.Env):
         }
         self.connections.clear()
         self.connections.update(connections)
+
+    def update_connections_sensors(self) -> None:
+        """Release connections where BS and sensor is out-of-range."""
+        connections_sensor = {
+            bs: set(sensor for sensor in sensors if self.check_connectivity_sensor(bs, sensor))
+            for bs, sensors in self.connections_sensor.items()
+        }
+        self.connections_sensor.clear()
+        self.connections_sensor.update(connections_sensor)
 
     def update_positions(self):
         '''Checks if ue in range and adds the timestamp to the UE'''
@@ -354,7 +362,7 @@ class MComCore(gymnasium.Env):
     def connect_bs_sensor(self) -> None:
         """Connect each sensor to the closest base station."""
         for sensor in self.sensors.values():
-            closest_bs = None
+            closest_bs: Optional[BaseStation] = None
             min_distance = float('inf')
             
             for bs in self.stations.values():
@@ -372,7 +380,7 @@ class MComCore(gymnasium.Env):
     def connect_bs_ue(self) -> None:
         """Connect the UE to the closest base station within data range."""
         for ue in self.users.values():
-            closest_bs = None
+            closest_bs: Optional[BaseStation] = None
             min_distance = float('inf')
 
             for bs in self.stations.values():
@@ -387,118 +395,174 @@ class MComCore(gymnasium.Env):
                 self.connections[closest_bs].add(ue)
 
     def transfer_data(self) -> None:
-        """Transfers data from devices to base stations according to data rates."""
+        """Transfers data from UEs to base stations according to data rates."""
+
+        # Define the duration of the timeslot, e.g., 1 second
+        time_slot_duration = 1
+
+        # Transfer data from UEs to Base Stations
         for bs, ues in self.connections.items():
             for ue in ues:
-                if ue.data_buffer_uplink.current_size > 0:
-                    packet = ue.data_buffer_uplink.get()
+                remaining_data_rate = self.datarates.get((bs, ue), 1e6)
+                if remaining_data_rate <= 0:
+                    logging.warning(f"No data rate for connection with base station {bs} for device {ue}. Packet transmission aborted.")
+                    continue
 
-                    # Check data rate for the connection
-                    data_rate = self.datarates.get((bs, ue), 1e6)
-                    if data_rate <= 0:
-                        logging.warning(f"No data rate for connection with base station {bs} for device {ue}. Packet transmission aborted.")
-                        continue
+                # Continue transmitting bits until the data rate is fully utilized
+                while remaining_data_rate > 0 and ue.data_buffer_uplink.data_queue.qsize() > 0:
+                    job = ue.data_buffer_uplink.get_job()  # Peek at the job without removing it
 
-                    # Update the start of serving time if no bits served
-                    if packet['remaining_size'] == packet['initial_size']:
-                        packet['serving_time_start'] = self.time
-                        packet['serving_bs'] = bs.bs_id
+                    # Initialize the serving time start if it's the first transmission
+                    if job['serving_time_start'] is None:
+                        job['serving_time_start'] = self.time
 
                     # Calculate the amount of bits to send based on data rate
-                    bits_to_send = min(packet['remaining_size'], data_rate)
+                    bits_to_send = min(job['remaining_size'], remaining_data_rate * time_slot_duration)
 
-                    # Update remaining size of the packet
-                    packet['remaining_size'] -= bits_to_send
+                    # Update remaining size of the job and remaining data rate
+                    job = JobGenerator.update_job_size(job, bits_to_send)
+                    remaining_data_rate -= bits_to_send / time_slot_duration
 
-                    # Log the transmission start
-                    logging.info(f"Time step: {self.time} Device: {ue}, Base Station: {bs}, index: {packet['index']} "
-                                 f"Bits sent: {bits_to_send}, Remaining size: {packet['remaining_size']}")
+                    # Log the transmission
+                    logging.info(
+                        f"Time step: {self.time} Device: {ue.ue_id}, Base Station: {bs.bs_id}, index: {job['index']} "
+                        f"Bits sent: {bits_to_send}, Remaining size: {job['remaining_size']}"
+                    )
 
                     # Check if all bits are sent
-                    if packet['remaining_size'] <= 0:
-                        # Remove packet from device queue
-                        ue.data_buffer_uplink.remove()
-                        # Put packet into base station queue
-                        bs.data_buffer_uplink.add(packet)
+                    if job['remaining_size'] <= 0:
+                        # Remove job from device queue
+                        ue.data_buffer_uplink.remove_job()
+                        # Put job into base station queue
+                        bs.data_buffer_uplink.add_job(job)
                         # Update base station number, time step, etc.
-                        packet['serving_time_end'] = self.time
-                        packet['serving_time_total'] = packet['serving_time_end'] - packet['serving_time_start']
-                        logging.info(f"Time step: {self.time} Packet {packet['index']} transferred from device {ue} to base station {bs} with serving time {packet['serving_time_total']}.")
-
+                        job['serving_time_end'] = self.time
+                        job['serving_time_total'] = job['serving_time_end'] - job['serving_time_start']
+                        logging.info(
+                            f"Time step: {self.time} Job {job['index']} transferred from device {ue.ue_id} to base station {bs.bs_id} with serving time {job['serving_time_total']}."
+                        )
                     else:
-                        logging.info(f"Time step: {self.time} Packet {packet['index']} partially transferred from device {ue} to base station {bs}.")
-    
-    def packet_generation(self, ue: UserEquipment) -> None:
-        """Generate packets for user equipments at each time step according to Bernoulli distribution."""
-        if random.random() < 0.7:  # Example probability for packet generation
-            packet = PacketGenerator.create_packet(self.time)
-            if ue.data_buffer_uplink.add(packet):
-                logging.info(f"Time step: {self.time} Packet generated: {packet['index']} at time: {packet['creation_time']} by device {ue} with initial size of {packet['initial_size']} and remaining size of {packet['remaining_size']}")
+                        logging.info(
+                            f"Time step: {self.time} Job {job['index']} partially transferred from device {ue.ue_id} to base station {bs.bs_id}."
+                        )
+                        break  # If the packet is not fully transmitted, exit the loop to go to the next UE
 
-    def packet_generation_sensor(self, sensor: Sensor) -> None:
-        """Generate packets for sensors at each time step for environmental updates."""
-        if random.random() < 0.1:  # Example probability for packet generation
-            packet = PacketGenerator.create_packet(self.time)
-            if sensor.data_buffer_uplink.add(packet):
-                logging.info(f"Time step: {self.time} Packet generated: {packet['index']} at time: {packet['creation_time']} by sensor {sensor} with initial size of {packet['initial_size']} and remaining size of {packet['remaining_size']}")
-    
-    def log_connections(self):
-        """Logs connections between bs and ues."""
-        for bs, ues in self.connections.items():
-            if ues:
-                connected_devices = ", ".join([str(ue) for ue in ues])
-                logging.info(f"Time step: {self.time} Devices {connected_devices} connected to {bs}")
+    def transfer_data_sensor(self) -> None:
+        """Transfers data from sensors to base stations according to data rates."""
 
-    def log_datarates(self):
+        # Define the duration of the timeslot, e.g., 1 second
+        time_slot_duration = 1
+
+        # Transfer data from Sensors to Base Stations
+        for bs, sensors in self.connections_sensor.items():
+            for sensor in sensors:
+                #TODO: compute datarates for sensors
+                remaining_data_rate = self.datarates_sensor.get((bs, sensor), 1e6)
+                if remaining_data_rate <= 0:
+                    logging.warning(f"No data rate for connection with base station {bs} for sensor {sensor}. Packet transmission aborted.")
+                    continue
+
+                # Continue transmitting jobs until the data rate is fully utilized
+                while remaining_data_rate > 0 and sensor.data_buffer_uplink.data_queue.qsize() > 0:
+                    job = sensor.data_buffer_uplink.get_job()  # Peek at the job without removing it
+
+                    # Initialize the serving time start if it's the first transmission
+                    if job['serving_time_start'] is None:
+                        job['serving_time_start'] = self.time
+
+                    # Calculate the amount of bits to send based on data rate
+                    bits_to_send = min(job['remaining_size'], remaining_data_rate * time_slot_duration)
+
+                    # Update remaining size of the job and remaining data rate
+                    job = JobGenerator.update_job_size(job, bits_to_send)
+                    remaining_data_rate -= bits_to_send / time_slot_duration
+
+                    # Log the transmission
+                    logging.info(
+                        f"Time step: {self.time} Sensor: {sensor.sensor_id}, Base Station: {bs.bs_id}, index: {job['index']} "
+                        f"Bits sent: {bits_to_send}, Remaining size: {job['remaining_size']}"
+                    )
+
+                    # Check if all bits are sent
+                    if job['remaining_size'] <= 0:
+                        # Remove job from sensor queue
+                        sensor.data_buffer_uplink.remove_job()
+                        # Put job into base station queue
+                        bs.data_buffer_uplink.add_job(job)
+                        # Update base station number, time step, etc.
+                        job['serving_time_end'] = self.time
+                        job['serving_time_total'] = job['serving_time_end'] - job['serving_time_start']
+                        logging.info(
+                            f"Time step: {self.time} Job {job['index']} transferred from sensor {sensor.sensor_id} to base station {bs.bs_id} with serving time {job['serving_time_total']}."
+                        )
+                    else:
+                        logging.info(
+                            f"Time step: {self.time} Job {job['index']} partially transferred from sensor {sensor.sensor_id} to base station {bs.bs_id}."
+                        )
+                        break  # If the packet is not fully transmitted, exit the loop to go to the next sensor
+
+    def job_generation(self, ue: UserEquipment) -> None:
+        """Generate jobs for user equipments at each time step for device updates."""
+        if random.random() < 0.7:  # Example probability for job generation
+            job = JobGenerator.create_job(self.time, "user_device")
+            if ue.data_buffer_uplink.add_job(job):
+                logging.info(f"Time step: {self.time} Job generated: {job['index']} at time: {job['creation_time']} by device {ue} with initial size of {job['initial_size']} and remaining size of {job['remaining_size']}")
+
+    def job_generation_sensor(self, sensor: Sensor) -> None:
+        """Generate jobs for sensors at each time step for environmental updates."""
+        job = JobGenerator.create_job(self.time, "sensor")
+        if sensor.data_buffer_uplink.add_job(job):
+            logging.info(f"Time step: {self.time} Job generated: {job['index']} at time: {job['creation_time']} by sensor {sensor} with initial size of {job['initial_size']} and remaining size of {job['remaining_size']}")
+
+    def log_datarates(self) -> None:
         """Logs datarates of each connected ue-bs pair."""
-        for (bs, ue), rate in self.datarates.items():
+        for (bs, ue), rate in sorted(self.datarates.items(), key=lambda x: x[0][1].ue_id):
             logging.info(f"Time step: {self.time} Data rate for {ue} connected to {bs} is : {rate}")
 
-    def log_device_uplink_queue(self):
-        """Logs the packet indexes, initial sizes, and remaining sizes for every packet in the uplink buffer of ues."""
+    def log_datarates_sensor(self) -> None:
+        """Logs datarates of each connected sensor-bs pair."""
+        for (bs, sensor), rate in sorted(self.datarates_sensor.items(), key=lambda x: x[0][1].sensor_id):
+            logging.info(f"Time step: {self.time} Data rate for {sensor} connected to {bs} is : {rate}")
+
+    def log_device_uplink_queue(self) -> None:
+        """Logs the job indexes, initial sizes, and remaining sizes for every job in the uplink buffer of UEs."""
         for ue in self.users.values():
-            if ue.data_buffer_uplink.current_size > 0:
-                for i in range(ue.data_buffer_uplink.current_size):
-                    packet = ue.data_buffer_uplink.data_queue[i]
-                    logging.info(f"Time step: {self.time} Device: {ue.ue_id}, Packet index: {packet['index']}, Initial size: {packet['initial_size']}, Remaining size: {packet['remaining_size']}")
+            buffer_size = ue.data_buffer_uplink.data_queue.qsize()
+            if buffer_size > 0:
+                for job in list(ue.data_buffer_uplink.data_queue.queue):
+                    logging.info(f"Time step: {self.time} Device: {ue.ue_id}, Job index: {job['index']}, Initial size: {job['initial_size']}, Remaining size: {job['remaining_size']}")
 
-    def log_sensor_uplink_queue(self):
-        """Logs the packet indexes, initial sizes, and remaining sizes for every packet in the uplink buffer of sensors."""
+    def log_sensor_uplink_queue(self) -> None:
+        """Logs the job indexes, initial sizes, and remaining sizes for every job in the uplink buffer of sensors."""
         for sensor in self.sensors.values():
-            if sensor.data_buffer_uplink.current_size > 0:
-                for i in range(sensor.data_buffer_uplink.current_size):
-                    packet = sensor.data_buffer_uplink.data_queue[i]
-                    logging.info(f"Time step: {self.time} Sensor: {sensor.sensor_id}, Packet index: {packet['index']}, Initial size: {packet['initial_size']}, Remaining size: {packet['remaining_size']}")
+            buffer_size = sensor.data_buffer_uplink.data_queue.qsize()
+            if buffer_size > 0:
+                for job in list(sensor.data_buffer_uplink.data_queue.queue):
+                    logging.info(f"Time step: {self.time} Sensor: {sensor.sensor_id}, Job index: {job['index']}, Initial size: {job['initial_size']}, Remaining size: {job['remaining_size']}")
 
-    def log_bs_queue(self):
-        """Logs the packet indexes, initial sizes, and remaining sizes for every packet in the bs queues."""
+    def log_bs_queue(self) -> None:
+        """Logs the job indexes, initial sizes, and remaining sizes for every job in the bs queues."""
         for bs in self.stations.values():
-            if bs.data_buffer_uplink:
-                for i in range(bs.data_buffer_uplink.current_size):
-                    packet = bs.data_buffer_uplink.data_queue[i]
-                    logging.info(f"Time step: {self.time} Base station: {bs.bs_id}, Packet index: {packet['index']}, Initial size:{packet['initial_size']}, Remaining size: {packet['remaining_size']}")
+            buffer_size = bs.data_buffer_uplink.data_queue.qsize()
+            if buffer_size > 0:
+                for job in list(bs.data_buffer_uplink.data_queue.queue):
+                    logging.info(f"Time step: {self.time} Base station: {bs.bs_id}, Job index: {job['index']}, Initial size:{job['initial_size']}, Remaining size: {job['remaining_size']}")
 
-    def log_all_connections(self):
+    def log_all_connections(self) -> None:
         """Log all connections between base stations and user equipment in one line."""
-        connection_strings = []
-
-        for bs, ues in self.connections.items():
-            sorted_ue_ids = sorted([ue.ue_id for ue in ues])
-            ue_ids = ','.join(map(str, sorted_ue_ids))
-            connection_strings.append(f"BS {bs.bs_id}: [{ue_ids}]")
-
+        connection_strings = [
+            f"BS {bs.bs_id}: [{','.join(map(str, sorted(ue.ue_id for ue in ues)))}]"
+            for bs, ues in self.connections.items()
+        ]
         log_message = "Connections UEs: " + "; ".join(connection_strings)
         logging.info(log_message)
 
-    def log_all_connections_sensors(self):
-        """Log all connections between base stations and user equipment in one line."""
-        connection_strings = []
-
-        for bs, sensors in self.connections_sensor.items():
-            sorted_sensor_ids = sorted([sensor.sensor_id for sensor in sensors])
-            sensor_ids = ','.join(map(str, sorted_sensor_ids))
-            connection_strings.append(f"BS {bs.bs_id}: [{sensor_ids}]")
-
+    def log_all_connections_sensors(self) -> None:
+        """Log all connections between base stations and sensors in one line."""
+        connection_strings = [
+            f"BS {bs.bs_id}: [{','.join(map(str, sorted(sensor.sensor_id for sensor in sensors)))}]"
+            for bs, sensors in self.connections_sensor.items()
+        ]
         log_message = "Connections Sensors: " + "; ".join(connection_strings)
         logging.info(log_message)
 
@@ -506,15 +570,19 @@ class MComCore(gymnasium.Env):
         assert not self.time_is_up, "step() called on terminated episode"
 
         # apply handler to transform actions to expected shape
+        # TODO: implement a way to handle transforming actions to expected shape
         #actions = self.handler.action(self, actions)
 
-        # release established connections that moved e.g. out-of-range
-        self.update_connections()
-        self.update_positions()
-
-        # Connect sensors to the closest base station
+        # connect sensors to the closest base station
         self.connect_bs_ue()
         self.connect_bs_sensor()
+
+        # check snr thresholds, release established connections that moved e.g. out-of-range
+        self.update_connections()
+        self.update_connections_sensors()
+
+        # update user equipment positions in sensor logs
+        self.update_positions()
 
         # Logging base station connections
         logging.info(f"Time step: {self.time} Logging BS-UE connections...")
@@ -523,24 +591,28 @@ class MComCore(gymnasium.Env):
         logging.info(f"Time step: {self.time} Logging BS-Sensor connections...")
         self.log_all_connections_sensors()
      
-        # Generate packets for each UE and sensor
-        logging.info(f"Time step: {self.time} Package generation starting...")
+        # Generate jobs for each UE and sensor
+        logging.info(f"Time step: {self.time} Job generation starting...")
 
         for ue in self.users.values():
-            self.packet_generation(ue)
+            self.job_generation(ue)
 
-        #for sensor in self.sensors.values():
-        #    self.packet_generation(sensor)
+        for sensor in self.sensors.values():
+            self.job_generation_sensor(sensor)
         
-        logging.info(f"Time step: {self.time} Package generation terminated...")
+        logging.info(f"Time step: {self.time} Job generation terminated...")
 
         # Log sensor and ue data uplink queues
         logging.info(f"Time step: {self.time} Device uplink queues...")
         self.log_device_uplink_queue()
 
-        #logging.info(f"Time step: {self.time} Sensor uplink queues...")
-        #self.log_sensor_uplink_queue()
+        logging.info(f"Time step: {self.time} Sensor uplink queues...")
+        self.log_sensor_uplink_queue()
 
+        logging.info(f"Time step: {self.time} Base station uplink queues...")
+        self.log_bs_queue()
+
+        # TODO: add a new apply_action function for the new problem of resource allocation
         # TODO: add penalties for changing connections?
         #for ue_id, action in actions.items():
         #    self.apply_action(action, self.users[ue_id])
@@ -550,24 +622,40 @@ class MComCore(gymnasium.Env):
         for bs in self.stations.values():
             drates = self.station_allocation(bs)
             self.datarates.update(drates)
-
+            
+        # update sensor connections' data rates after re-scheduling
+        self.datarates_sensor = {}
+        for bs in self.stations.values():
+            drates_sensor = self.station_allocation_sensor(bs)
+            self.datarates_sensor.update(drates_sensor)
+        
         # update macro (aggregated) data rates for each UE
         self.macro = self.macro_datarates(self.datarates)
 
         # Logging datarates
         logging.info(f"Time step: {self.time} Data rates...")
         self.log_datarates()
+        self.log_datarates_sensor()
 
         # Packet transmission
         logging.info(f"Time step: {self.time} Packet transmission starting...")
         self.transfer_data() 
+        self.transfer_data_sensor()
         logging.info(f"Time step: {self.time} Packet transmission over...")
+
+        # Log sensor and ue data uplink queues
+        logging.info(f"Time step: {self.time} Device uplink queues...")
+        self.log_device_uplink_queue()
+        logging.info(f"Time step: {self.time} Sensor uplink queues...")
+        self.log_sensor_uplink_queue()
+        logging.info(f"Time step: {self.time} Base station uplink queues...")
+        self.log_bs_queue()
 
         # Log the queue sizes
         self.queue_logs['time'].append(self.time)
-        self.queue_logs['sensor_queues'].append({sensor.sensor_id: ue.data_buffer_uplink.current_size for sensor in self.sensors.values()})
-        self.queue_logs['ue_queues'].append({ue.ue_id: ue.data_buffer_uplink.current_size for ue in self.users.values()})
-        self.queue_logs['bs_queues'].append({bs.bs_id: bs.data_buffer_uplink.current_size for bs in self.stations.values()})
+        self.queue_logs['sensor_queues'].append({sensor.sensor_id: ue.data_buffer_uplink.data_queue.qsize() for sensor in self.sensors.values()})
+        self.queue_logs['ue_queues'].append({ue.ue_id: ue.data_buffer_uplink.data_queue.qsize() for ue in self.users.values()})
+        self.queue_logs['bs_queues'].append({bs.bs_id: bs.data_buffer_uplink.data_queue.qsize() for bs in self.stations.values()})
 
         # compute utilities from UEs' data rates & log its mean value
         self.utilities = {
@@ -581,6 +669,7 @@ class MComCore(gymnasium.Env):
 
         # compute rewards from utility for each UE
         # method is defined by handler according to strategy pattern
+        # TODO: implement a new way to compute rewards because this strategy computes rewards according to utility for each EU based on the datarate
         rewards = self.handler.reward(self)
 
         # evaluate metrics and update tracked metrics given the core simulation
@@ -667,6 +756,24 @@ class MComCore(gymnasium.Env):
         rates = self.scheduler.share(bs, max_allocation)
 
         return {(bs, ue): rate for ue, rate in zip(conns, rates)}
+    
+    def station_allocation_sensor(self, bs) -> Dict:
+        """Schedule BS's resources (e.g. phy. res. blocks) to connected sensors."""
+        conns_sensor = self.connections_sensor[bs]
+
+        # compute SNR & max. data rate for each connected sensor
+        snrs_sensor = [self.channel.snr(bs, sensor) for sensor in conns_sensor]
+
+        # Sensor's max. data rate achievable when BS schedules all resources to it
+        max_allocation = [
+            self.channel.datarate(bs, sensor, snr) for snr, sensor in zip(snrs_sensor, conns_sensor)
+        ]
+
+        # BS shares resources among connected sensors
+        #TODO: a new share() method can be written in RoundRobin class for the sensors, but this works fine as well
+        rates_sensor = self.scheduler.share(bs, max_allocation)
+
+        return {(bs, sensor): rate for sensor, rate in zip(conns_sensor, rates_sensor)}
 
     def station_utilities(self) -> Dict[BaseStation, UserEquipment]:
         """Compute average utility of UEs connected to the basestation."""
@@ -793,12 +900,12 @@ class MComCore(gymnasium.Env):
         if self.closed:
             return
 
-        # calculate isoline contours for BSs' connectivity range
+        # calculate isoline contours for BSs' connectivity range (5 MB/s range)
         if self.conn_isolines is None:
-            self.conn_isolines = self.bs_isolines(0.0)
-        # calculate isoline contours for BSs' 1 MB/s range
+            self.conn_isolines = self.bs_isolines(5.0)
+        # calculate isoline contours for BSs' 100 MB/s range
         if self.mb_isolines is None:
-            self.mb_isolines = self.bs_isolines(1.0)
+            self.mb_isolines = self.bs_isolines(100.0)
 
         # set up matplotlib figure & axis configuration
         fig = plt.figure()
