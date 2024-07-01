@@ -12,6 +12,7 @@ class BaseStation:
         freq: float,
         tx: float,
         height: float,
+        computational_power: float,
     ):
         # BS ID should be final, i.e., BS ID must be unique
         self.bs_id = bs_id
@@ -20,7 +21,11 @@ class BaseStation:
         self.frequency = freq  # in MHz
         self.tx_power = tx  # in dBm
         self.height = height  # in m
-        self.data_buffer_uplink = Buffer(size=100)  # adding buffer for uplink communication 
+        self.computational_power = computational_power  # in million CPU cycles per timestep
+        self.data_buffer_uplink_ue = Buffer(size=1000)
+        self.data_buffer_uplink_sensor = Buffer(size=1000)
+        self.data_buffer_downlink_ue = Buffer(size=1000)
+        self.data_buffer_downlink_sensor = Buffer(size=1000)
 
     @property
     def point(self):
@@ -51,7 +56,8 @@ class UserEquipment:
         self.y: float = None
         self.stime: int = None
         self.extime: int = None
-        self.data_buffer_uplink = Buffer(size=100)
+        self.data_buffer_uplink = Buffer(size=1000)
+        #self.data_buffer_downlink = Buffer(size=1000)
 
     @property
     def point(self):
@@ -82,7 +88,8 @@ class Sensor:
         self.radius = radius
         self.logs = logs
         self.connected_base_station = BaseStation
-        self.data_buffer_uplink = Buffer(size=100)
+        self.data_buffer_uplink = Buffer(size=1000)
+        #self.data_buffer_downlink = Buffer(size=100)
 
     @property
     def point(self):

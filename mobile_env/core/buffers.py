@@ -36,28 +36,40 @@ class Buffer:
 
 
 class JobGenerator:
-    counter: int = 0 # Class variable to keep track of the number of jobs
+    def __init__(self):
+        self.counter: int = 0  # Instance variable to keep track of the number of jobs
 
-    @classmethod
-    def generate_index(cls) -> int:
-        cls.counter += 1
-        return cls.counter
-    
+    def generate_index(self) -> int:
+        self.counter += 1
+        return self.counter
+
     @staticmethod
     def generate_data(device_type: str) -> float:
         # Generate bits for jobs following Poisson distribution based on device type
         if device_type == 'sensor':
-            return np.random.poisson(lam=5)    # MB per second
+            data = np.random.poisson(lam=2)    # 2 MB
+            return data if data != 0 else 1    # Ensure non-zero value
         elif device_type == 'user_device':
-            return np.random.poisson(lam=15)   # MB per second
+            data = np.random.poisson(lam=15)   # 1 MB
+            return data if data != 0 else 1    # Ensure non-zero value
         else:
             raise ValueError("Unknown device type")
 
-    @classmethod
-    def create_job(cls, time: float, device_type: str) -> Job:
-        # Generate jobs for the sensors and ues
-        index = cls.generate_index()
-        initial_size = cls.generate_data(device_type)
+    @staticmethod
+    def generate_computational_requirement(device_type: str) -> int:
+        # Determine the computational requirement based on device type
+        if device_type == 'sensor':
+            return 2  # million CPU cycles
+        elif device_type == 'user_device':
+            return 20  # milion CPU cycles
+        else:
+            raise ValueError("Unknown device type")
+
+    def create_job(self, time: float, device_id: int, device_type: str) -> Job:
+        # Generate jobs for the sensors and UEs
+        index = self.generate_index()
+        initial_size = self.generate_data(device_type)
+        computational_requirement = self.generate_computational_requirement(device_type)
         job = {
             'index': index,
             'initial_size': initial_size,
@@ -66,14 +78,11 @@ class JobGenerator:
             'serving_bs': None,
             'serving_time_start': None,
             'serving_time_end': None,
-            'serving_time_total': None
+            'serving_time_total': None,
+            'device_type': device_type,  # Added type to distinguish between sensor and user device jobs
+            'device_id': device_id,
+            'processing_time': None,
+            'computational_requirement': computational_requirement,
+            'target_id': None
         }
         return job
-    
-    @staticmethod
-    def update_job_size(job: Job, data_rate: float) -> Job:
-        job['remaining_size'] -= data_rate
-        if job['remaining_size'] < 0:
-            job['remaining_size'] = 0
-        return job
- 
