@@ -50,7 +50,7 @@ class JobGenerator:
             data = np.random.poisson(lam=2)    # 2 MB
             return data if data != 0 else 1    # Ensure non-zero value
         elif device_type == 'user_device':
-            data = np.random.poisson(lam=15)   # 1 MB
+            data = np.random.poisson(lam=15)   # 15 MB
             return data if data != 0 else 1    # Ensure non-zero value
         else:
             raise ValueError("Unknown device type")
@@ -59,9 +59,9 @@ class JobGenerator:
     def generate_computational_requirement(device_type: str) -> int:
         # Determine the computational requirement based on device type
         if device_type == 'sensor':
-            return 2  # million CPU cycles
+            return 10  # FLOPS
         elif device_type == 'user_device':
-            return 20  # milion CPU cycles
+            return 50  # FLOPS
         else:
             raise ValueError("Unknown device type")
 

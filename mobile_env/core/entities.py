@@ -21,7 +21,7 @@ class BaseStation:
         self.frequency = freq  # in MHz
         self.tx_power = tx  # in dBm
         self.height = height  # in m
-        self.computational_power = computational_power  # in million CPU cycles per timestep
+        self.computational_power = computational_power  # in FLOPS per timestep
         self.data_buffer_uplink_ue = Buffer(size=1000)
         self.data_buffer_uplink_sensor = Buffer(size=1000)
         self.data_buffer_downlink_ue = Buffer(size=1000)
@@ -57,7 +57,6 @@ class UserEquipment:
         self.stime: int = None
         self.extime: int = None
         self.data_buffer_uplink = Buffer(size=1000)
-        #self.data_buffer_downlink = Buffer(size=1000)
 
     @property
     def point(self):
@@ -89,7 +88,6 @@ class Sensor:
         self.logs = logs
         self.connected_base_station = BaseStation
         self.data_buffer_uplink = Buffer(size=1000)
-        #self.data_buffer_downlink = Buffer(size=100)
 
     @property
     def point(self):
