@@ -13,7 +13,7 @@ class Scheduler:
         pass
 
     @abstractmethod
-    def share(self, bs: BaseStation, rates: List[float]) -> List[float]:
+    def share(self, bs: BaseStation, rates: List[float], total_resources: float) -> List[float]:
         pass
 
 
@@ -61,7 +61,7 @@ class RoundRobin(Scheduler):
     def reset(self):
         self.last_served_index.clear()
 
-    def share(self, bs: BaseStation, rates: List[float]) -> List[float]:
+    def share(self, bs: BaseStation, rates: List[float], total_resources: float) -> List[float]:
         if not rates:
             return []
 
@@ -71,7 +71,7 @@ class RoundRobin(Scheduler):
 
         allocation = [0] * num_ues
         rem_rates = rates[:]
-        total_resources = bs.bw  # Assuming 'bandwidth' represents the total resources
+        #total_resources = bs.bw  # Assuming 'bandwidth' represents the total resources
         t = 0  # Current time for resource allocation
 
         while True:
@@ -98,3 +98,9 @@ class RoundRobin(Scheduler):
             allocation = [alloc * total_resources / total_allocated for alloc in allocation]
 
         return allocation
+    
+    def share_ue(self, bs: BaseStation, rates: List[float], ue_bandwidth: float) -> List[float]:
+        return self.share(bs, rates, ue_bandwidth)
+
+    def share_sensor(self, bs: BaseStation, rates: List[float], sensor_bandwidth: float) -> List[float]:
+        return self.share(bs, rates, sensor_bandwidth)

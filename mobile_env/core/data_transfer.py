@@ -13,10 +13,10 @@ class DataTransferManager:
             self._transfer_data_to_bs(bs, self.env.connections.get(bs, []), 'uplink')  # Improved method naming
             self._transfer_data_to_bs(bs, self.env.connections_sensor.get(bs, []), 'uplink')  # Improved method naming
 
-    def process_data_mec(self) -> None:
+    def process_data_mec(self, ue_computational_power: float, sensor_computational_power: float) -> None:
         # Process data in MEC servers and write processed jobs into downlink queues.
         for bs in self.env.stations.values():
-            self._process_data_for_bs(bs)
+            self._process_data_for_bs(bs, ue_computational_power, sensor_computational_power)
 
     def _transfer_data_to_bs(self, bs: BaseStation, devices: List[Union[UserEquipment, Sensor]], direction: str) -> None:
         for device in devices:
@@ -84,10 +84,10 @@ class DataTransferManager:
             raise ValueError(f"Invalid direction: {direction}")
         return src_buffer, dst_buffer
 
-    def _process_data_for_bs(self, bs: BaseStation) -> None:
-        self._process_data(bs.data_buffer_uplink_ue, bs.data_buffer_downlink_ue, bs.computational_power)
+    def _process_data_for_bs(self, bs: BaseStation, ue_computational_power: float, sensor_computational_power: float) -> None:
+        self._process_data(bs.data_buffer_uplink_ue, bs.data_buffer_downlink_ue, ue_computational_power)
         logging.warn(f"Time step: {self.env.time} UE jobs are processed.")
-        self._process_data(bs.data_buffer_uplink_sensor, bs.data_buffer_downlink_sensor, bs.computational_power)
+        self._process_data(bs.data_buffer_uplink_sensor, bs.data_buffer_downlink_sensor, sensor_computational_power)
         logging.warn(f"Time step: {self.env.time} Sensor jobs are processed.")
 
     def _process_data(self, uplink_buffer: Buffer, downlink_buffer: Buffer, computational_power: float) -> None:
