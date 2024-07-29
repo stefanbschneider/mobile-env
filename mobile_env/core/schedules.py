@@ -61,7 +61,7 @@ class RoundRobin(Scheduler):
     def reset(self):
         self.last_served_index.clear()
 
-    def share(self, bs: BaseStation, rates: List[float], total_resources: float) -> List[float]:
+    def share(self, bs: BaseStation, rates: List[float], resource: float) -> List[float]:
         if not rates:
             return []
 
@@ -71,7 +71,7 @@ class RoundRobin(Scheduler):
 
         allocation = [0] * num_ues
         rem_rates = rates[:]
-        #total_resources = bs.bw  # Assuming 'bandwidth' represents the total resources
+        total_resources = resource  # Assuming 'bandwidth' represents the total resources
         t = 0  # Current time for resource allocation
 
         while True:

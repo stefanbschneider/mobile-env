@@ -109,9 +109,9 @@ class Logger:
         self.log_device_uplink_queue()
         logging.info(f"Time step: {self.env.time} Sensor uplink queues...")
         self.log_sensor_uplink_queue()
-        logging.info(f"Time step: {self.env.time} Base station uplink queues...")
+        logging.info(f"Time step: {self.env.time} Base station queue for transferred jobs...")
         self.log_bs_uplink_queue()
-        logging.info(f"Time step: {self.env.time} Base station downlink queues...")
+        logging.info(f"Time step: {self.env.time} Base station queue for accomplished jobs...")
         self.log_bs_downlink_queue()
 
     def log_all_datarates(self) -> None:

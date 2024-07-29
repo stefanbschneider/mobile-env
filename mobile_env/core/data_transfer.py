@@ -2,12 +2,14 @@ import logging
 from typing import Dict, Union, List, Tuple
 from mobile_env.core.entities import BaseStation, UserEquipment, Sensor
 from mobile_env.core.buffers import JobQueue
+from mobile_env.core.job_generator import JobGenerator
 
 Device = Union[UserEquipment, Sensor]
 
 class DataTransferManager:
     def __init__(self, env):
         self.env = env
+        self.job_generator = env.job_generator
 
     def transfer_data_uplink(self) -> None:
         """Transfers data from UEs and sensors to base stations according to data rates."""
@@ -53,6 +55,15 @@ class DataTransferManager:
                 dst_buffer.enqueue_job(job)
                 job['serving_time_end'] = self.env.time
                 job['serving_time_total'] = job['serving_time_end'] - job['serving_time_start']
+
+                # Update arrival_time in the packets DataFrame
+                if job['device_type'] == 'user_device':
+                    self.job_generator.packet_df_ue.loc[self.job_generator.packet_df_ue['packet_id'] == job['index'], 'arrival_time'] = self.env.time
+                elif job['device_type'] == 'sensor':
+                    self.job_generator.packet_df_sensor.loc[self.job_generator.packet_df_sensor['packet_id'] == job['index'], 'arrival_time'] = self.env.time
+                else:
+                    logging.warning(f"Unknown device type {job['device_type']}. Arrival time not updated.")
+
                 logging.info(
                     f"Time step: {self.env.time} Job {job['index']} transferred from {src} to {dst} with serving time {job['serving_time_total']}."
                 )
@@ -99,6 +110,14 @@ class DataTransferManager:
 
                 # Add the job to the downlink buffer
                 downlink_buffer.enqueue_job(job)
+
+                # Update accomplished_computing_time in the packets DataFrame
+                if job['device_type'] == 'user_device':
+                    self.job_generator.packet_df_ue.loc[self.job_generator.packet_df_ue['packet_id'] == job['index'], 'accomplished_computing_time'] = self.env.time
+                elif job['device_type'] == 'sensor':
+                    self.job_generator.packet_df_sensor.loc[self.job_generator.packet_df_sensor['packet_id'] == job['index'], 'accomplished_computing_time'] = self.env.time
+                else:
+                    logging.warning(f"Unknown device type {job['device_type']}. Computing time not updated.")
 
                 logging.info(
                     f"Time step: {self.env.time} Processed job {job['index']} with computational requirement {job['computational_requirement']}."

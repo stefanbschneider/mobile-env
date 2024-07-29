@@ -15,7 +15,7 @@ class MComSmartCity(MComCore):
         ]
         num_ues = 5
         ues = [UserEquipment(ue_id, **config["ue"]) for ue_id in range(num_ues)]
-        num_sensors = 15
+        num_sensors = 5
 
         max_distance = 70  # Maximum distance from the base station
         min_distance = 30   # Minimum distance between sensors

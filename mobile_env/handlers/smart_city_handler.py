@@ -2,6 +2,7 @@ from typing import Dict, Tuple
 
 import numpy as np
 from gymnasium import spaces
+import logging
 
 from mobile_env.handlers.handler import Handler
 
@@ -49,12 +50,43 @@ class MComSmartCityHandler(Handler):
 
     @classmethod
     def reward(cls, env) -> float:
-        """The central agent receives the average UE utility as reward."""
-        utilities = np.asarray([utility for utility in env.utilities.values()])
-        bounded = np.logical_and(utilities >= -1, utilities <= 1).all()
-        assert bounded, "Utilities must be in range [-1, +1]"
-        return np.mean(utilities)
+        """Computes rewards for agent."""
 
+        total_reward = 0
+        R = 1
+        beta = 0.7
+
+         # Find the UE packets accomplished at the current time step
+        accomplished_ue_packets = env.job_generator.packet_df_ue[env.job_generator.packet_df_ue['accomplished_computing_time'] == env.time]
+
+        if accomplished_ue_packets.empty:
+            # No UE packets accomplished at this time step
+            return 0
+
+        # Iterate over all accomplished UE packets
+        for _, ue_packet in accomplished_ue_packets.iterrows():
+            ue_generating_time = ue_packet['generating_time']
+ 
+            # Find the sensor packet with the most recent accomplished computing time
+            latest_sensor_packet = env.job_generator.packet_df_sensor.loc[
+                env.job_generator.packet_df_sensor['accomplished_computing_time'].idxmax()
+            ]
+                
+            sensor_generating_time = latest_sensor_packet['generating_time']
+
+            # Compute the delay
+            delay = ue_generating_time - sensor_generating_time
+            logging.info(f"The delay is: {delay}")
+
+            # Compute the reward based on the delay
+            # For simplicity, let's assume a linear reward function: reward = -delay
+            reward = R * (beta ** delay)
+
+            # Add the reward for this packet to the total reward
+            total_reward += reward
+
+        return total_reward
+    
     @classmethod
     def check(cls, env) -> None:
         """Check if handler is applicable to simulation configuration."""

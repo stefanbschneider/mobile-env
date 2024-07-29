@@ -16,12 +16,14 @@ class JobGenerator:
         # Initialize the JobGenerator with a counter for job indexing
         self.job_counter: int = 0
 
-        # Initialize an empty DataFrame with columns for job attributes to store jobs
-        self.jobs_df = pd.DataFrame(columns=[
-            'index', 'serving_bs', 'initial_size', 'remaining_size', 
-            'creation_time', 'serving_time_start', 'serving_time_end', 
-            'serving_time_total', 'device_type', 'device_id', 
-            'processing_time', 'computational_requirement', 'target_id'
+        self.packet_df_ue = pd.DataFrame(columns=[
+            'user_id', 'device_type', 'packet_id', 'generating_time', 
+            'arrival_time', 'accomplished_computing_time', 'e2e_delay_constraints'
+        ])
+
+        self.packet_df_sensor = pd.DataFrame(columns=[
+            'user_id', 'device_type', 'packet_id', 'generating_time', 
+            'arrival_time', 'accomplished_computing_time', 'e2e_delay_constraints'
         ])
 
     def _generate_index(self) -> int:
@@ -80,9 +82,25 @@ class JobGenerator:
             'target_id': None
         }
 
+        # For reward computation, create a data frame
+        packet = {
+            'user_id': device_id,
+            'device_type': device_type,
+            'packet_id': job_index,
+            'generating_time': time,
+            'arrival_time': None,
+            'accomplished_computing_time': None,
+            'e2e_delay_constraints': 10
+        }
+
         # Convert job to DataFrame and concatenate with existing DataFrame
-        job_df = pd.DataFrame([job])
-        self.jobs_df = pd.concat([self.jobs_df, job_df], ignore_index=True)
+        packet_df = pd.DataFrame([packet])
+        if device_type == 'sensor':
+            self.packet_df_sensor = pd.concat([self.packet_df_sensor, packet_df], ignore_index=True)
+        elif device_type == 'user_device':
+            self.packet_df_ue = pd.concat([self.packet_df_ue, packet_df], ignore_index=True)
+        else:
+            raise ValueError("Unknown device category. Expected 'sensor' or 'user_device'.")
 
         return job
     
@@ -98,3 +116,11 @@ class JobGenerator:
         job = self._generate_job(self.env.time, sensor.sensor_id, "sensor")
         if sensor.data_buffer_uplink.enqueue_job(job):
             logging.info(f"Time step: {self.env.time} Job generated: {job['index']} at time: {job['creation_time']} by {job['device_type']} {job['device_id']} with initial size of {job['initial_size']} and remaining size of {job['remaining_size']}")
+
+    def log_packets_ue(self) -> None:
+        """Log the DataFrame at the current time step"""
+        logging.info(f"{self.packet_df_ue}")
+    
+    def log_packets_sensor(self) -> None:
+        """Log the DataFrame at the current time step"""
+        logging.info(f"{self.packet_df_sensor}")

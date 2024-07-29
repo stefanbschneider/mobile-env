@@ -405,12 +405,10 @@ class MComCore(gymnasium.Env):
                     self.connections_sensor[closest_bs] = set()
                 self.connections_sensor[closest_bs].add(sensor)
 
-    # TODO: Improve this functionality
     def update_sensor_logs(self):
         '''Checks if UE is in range and adds the timestamp to the log of the UE'''
         for ue in self.users.values(): 
             ue_point = ue.point
-            logging.info(f"ue point is: {ue_point}")
 
             for sensor_id, sensor in self.sensors.items():
                 if sensor.is_within_range(ue_point):
@@ -424,7 +422,7 @@ class MComCore(gymnasium.Env):
                         sensor.logs[ue_id_str].append(self.time)
             
             # Log the current state of all sensor logs after processing each UE
-            logging.info(f"Sensor {sensor_id} logs after processing UE {ue.ue_id}: {sensor.logs}")
+            #logging.info(f"Sensor {sensor_id} logs after processing UE {ue.ue_id}: {sensor.logs}")
 
     def step(self, actions: Tuple[float, float]):
         assert not self.time_is_up, "step() called on terminated episode"
@@ -439,9 +437,8 @@ class MComCore(gymnasium.Env):
         self.update_connections()
         self.update_connections_sensors()
 
-        # TODO: Improve this functionality
         # update UE positions in sensor logs
-        #self.update_sensor_logs()
+        self.update_sensor_logs()
 
         # Logging base station connections
         self.logger.log_all_connections()
@@ -513,6 +510,10 @@ class MComCore(gymnasium.Env):
 
         # Log queue sizes
         #self.log_queue_sizes()
+
+        # Log the job data frame
+        self.job_generator.log_packets_ue()
+        self.job_generator.log_packets_sensor()
 
         # compute utilities from UEs' data rates & log its mean value
         self.utilities = {
