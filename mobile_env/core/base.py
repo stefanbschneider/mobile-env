@@ -10,7 +10,6 @@ import pygame
 from matplotlib import cm
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from pygame import Surface
-import random
 import logging
 
 from mobile_env.core import metrics
@@ -23,7 +22,8 @@ from mobile_env.core.schedules import ResourceFair, RateFair, ProportionalFair, 
 from mobile_env.core.util import BS_SYMBOL, SENSOR_SYMBOL, deep_dict_merge
 from mobile_env.core.utilities import BoundedLogUtility
 from mobile_env.handlers.central import MComCentralHandler
-from mobile_env.core.buffers import Buffer, JobGenerator
+from mobile_env.core.buffers import JobQueue
+from mobile_env.core.job_generator import JobGenerator
 from mobile_env.core.data_transfer import DataTransferManager
 from mobile_env.core.logger import Logger
 from mobile_env.handlers.smart_city_handler import MComSmartCityHandler
@@ -96,6 +96,8 @@ class MComCore(gymnasium.Env):
         self.datarates: Dict[Tuple[BaseStation, UserEquipment], float] = None
         # stores datarate of downlink connections between UEs and BSs
         self.datarates_sensor: Dict[Tuple[BaseStation, Sensor], float] = None
+        # store resource allocations for each base station
+        self.resource_allocations = None
         # stores each UE's (scaled) utility
         self.utilities: Dict[UserEquipment, float] = None
         # stores each Sensor's (scaled) utility
@@ -104,7 +106,7 @@ class MComCore(gymnasium.Env):
         self.rng = None
 
         # Instantiate JobGenerator and DataTransferManager
-        self.job_generator = JobGenerator()
+        self.job_generator = JobGenerator(self)
         self.data_transfer_manager = DataTransferManager(self)
 
         # Instantiate the Logger class
@@ -178,10 +180,10 @@ class MComCore(gymnasium.Env):
             # default Sensor config
             "sensor": {
                 "height": 1.5,
-                "radius": 5,
                 "snr_tr": 2e-8,
                 "noise": 1e-9,
                 "velocity": 0,
+                "radius": 500,
                 "logs": {},
             }          
         }
@@ -309,25 +311,21 @@ class MComCore(gymnasium.Env):
         
         return self.handler.observation(self), info
 
-    def apply_action(self, bs: BaseStation, bandwidth_allocation: float, computational_allocation: float) -> None:
-        """Allocate bandwidth and computational power between UEs and sensors."""
-        if not 0 <= bandwidth_allocation <= 1:
-            raise ValueError("Bandwidth allocation must be between 0 and 1")
-        if not 0 <= computational_allocation <= 1:
-            raise ValueError("Computational allocation must be between 0 and 1")
+    def apply_action(self, bs: BaseStation, bandwidth_allocation: float, computational_allocation: float) -> Tuple[float, float, float, float]:
+        """Allocate bandwidth and computational resource between UEs and sensors."""
+        if not (0 <= bandwidth_allocation <= 1 and 0 <= computational_allocation <= 1):
+            raise ValueError("Allocations must be between 0 and 1")
         
-        # Apply bandwidth allocation to Ues and sensors
-        total_bandwidth = bs.bw
-        ue_bandwidth = total_bandwidth * bandwidth_allocation
-        sensor_bandwidth = total_bandwidth * (1 - bandwidth_allocation)
+        # Apply bandwidth resource allocation to UEs and sensors
+        ue_bandwidth = bs.bw * bandwidth_allocation
+        sensor_bandwidth = bs.bw * (1 - bandwidth_allocation)
 
-        # Apply computational allocation to UEs and sensors
-        total_computational_power =  bs.computational_power
-        ue_computational_power = total_computational_power * computational_allocation
-        sensor_computational_power = total_computational_power * (1 - computational_allocation)
+        # Apply computational resource allocation to UEs and sensors
+        ue_computational_power = bs.computational_power * computational_allocation
+        sensor_computational_power = bs.computational_power * (1 - computational_allocation)
 
-        logging.info(f"Bandwidth allocated to UEs: {ue_bandwidth}, to Sensors: {sensor_bandwidth}")
-        logging.info(f"Computational power allocated to UEs: {ue_computational_power}, to Sensors: {sensor_computational_power}")
+        logging.info(f"Time step: {self.time} Bandwidth allocated to UEs: {ue_bandwidth} Hz, to Sensors: {sensor_bandwidth} Hz")
+        logging.info(f"Time step: {self.time} Computational power allocated to UEs: {ue_computational_power} FLOPS, to Sensors: {sensor_computational_power} FLOPS")
 
         return ue_bandwidth, sensor_bandwidth, ue_computational_power, sensor_computational_power
 
@@ -364,34 +362,22 @@ class MComCore(gymnasium.Env):
         self.connections_sensor.clear()
         self.connections_sensor.update(connections_sensor)
 
-    def update_positions(self):
-        '''Checks if ue in range and adds the timestamp to the UE'''
-        for ue in self.users.values():  # Iterates over all the UEs 
-            ue_point = ue.point 
-
-            for sensor in self.sensors.values():  # Iterate over all sensors 
-                if sensor.is_within_range(ue_point):
-                    # Ensure ue.ue_id is a string if sensor.logs uses string keys
-                    ue_id_str = str(ue.ue_id)
-                    # Check if the UE is detected, initialize a list if not
-                    if ue_id_str not in sensor.logs:
-                        sensor.logs[ue_id_str] = [self.current_time]
-                    else:
-                        # If the UE has already been detected, append the current time
-                        sensor.logs[ue_id_str].append(self.current_time)
-
     def connect_bs_ue(self) -> None:
         """Connect the UE to the closest base station within data range."""
         for ue in self.users.values():
-            closest_bs: Optional[BaseStation] = None
-            min_distance = float('inf')
+            closest_bs: Optional[BaseStation] = None    # Initialize the closest base station to None
+            min_distance = float('inf')                 # Initialize the minimum distance to infinity
 
+            # Iterate through all base stations to find the closest one
             for bs in self.stations.values():
+                # Calculate the Euclidean distance between the UE and the base station
                 distance = np.sqrt((ue.x - bs.x) ** 2 + (ue.y - bs.y) ** 2)
+                # Update the closest base station if the current one is closer
                 if distance < min_distance:
                     min_distance = distance
                     closest_bs = bs
 
+            # If a closest base station is found, establish the connection
             if closest_bs:
                 if closest_bs not in self.connections:
                     self.connections[closest_bs] = set()
@@ -400,46 +386,52 @@ class MComCore(gymnasium.Env):
     def connect_bs_sensor(self) -> None:
         """Connect each sensor to the closest base station."""
         for sensor in self.sensors.values():
-            closest_bs: Optional[BaseStation] = None
-            min_distance = float('inf')
+            closest_bs: Optional[BaseStation] = None     # Initialize the closest base station to None
+            min_distance = float('inf')                  # Initialize the minimum distance to infinity
             
+            #  Iterate through all base stations to find the closest one
             for bs in self.stations.values():
+                # Calculate the Euclidean distance between the sensor and the base station
                 distance = np.sqrt((sensor.x - bs.x) ** 2 + (sensor.y - bs.y) ** 2)
+                # Update the closest base station if the current one is closer
                 if distance < min_distance:
                     min_distance = distance
                     closest_bs = bs
 
+            # If a closest base station is found, establish the connection
             if closest_bs:
                 sensor.connected_base_station = closest_bs
                 if closest_bs not in self.connections_sensor:
                     self.connections_sensor[closest_bs] = set()
                 self.connections_sensor[closest_bs].add(sensor)
 
-    def job_generation(self, ue: UserEquipment) -> None:
-        """Generate jobs for user equipments at each time step for device updates."""
-        if random.random() < 0.5:  # Example probability for job generation
-            job = self.job_generator.create_job(self.time, ue.ue_id, "user_device")
-            if ue.data_buffer_uplink.add_job(job):
-                logging.info(f"Time step: {self.time} Job generated: {job['index']} at time: {job['creation_time']} by {job['device_type']} {job['device_id']} with initial size of {job['initial_size']} and remaining size of {job['remaining_size']}")
+    # TODO: Improve this functionality
+    def update_sensor_logs(self):
+        '''Checks if UE is in range and adds the timestamp to the log of the UE'''
+        for ue in self.users.values(): 
+            ue_point = ue.point
+            logging.info(f"ue point is: {ue_point}")
 
-    def job_generation_sensor(self, sensor: Sensor) -> None:
-        """Generate jobs for sensors at each time step for environmental updates."""
-        job = self.job_generator.create_job(self.time, sensor.sensor_id, "sensor")
-        if sensor.data_buffer_uplink.add_job(job):
-            logging.info(f"Time step: {self.time} Job generated: {job['index']} at time: {job['creation_time']} by {job['device_type']} {job['device_id']} with initial size of {job['initial_size']} and remaining size of {job['remaining_size']}")
+            for sensor_id, sensor in self.sensors.items():
+                if sensor.is_within_range(ue_point):
+                    # Ensure ue.ue_id is a string if sensor.logs uses string keys
+                    ue_id_str = str(ue.ue_id)
+                    # Check if the UE is detected, initialize a list if not
+                    if ue_id_str not in sensor.logs:
+                        sensor.logs[ue_id_str] = [self.time]
+                    else:
+                        # If the UE has already been detected, append the current time
+                        sensor.logs[ue_id_str].append(self.time)
+            
+            # Log the current state of all sensor logs after processing each UE
+            logging.info(f"Sensor {sensor_id} logs after processing UE {ue.ue_id}: {sensor.logs}")
 
     def step(self, actions: Tuple[float, float]):
         assert not self.time_is_up, "step() called on terminated episode"
 
-        # apply handler to transform actions to expected shape
-        allocations = self.handler.action(self, actions)
-        logging.info(f"Allocations: {allocations}")
-        
-        # Apply the new resource allocations
-        bandwidth_allocation = allocations["bandwidth_allocation"]
-        computational_allocation = allocations["computational_allocation"]
+        logging.info(f"Time step: {self.time} Establishing connections...")
 
-        # connect UEs and sensors to the closest base station
+        # connect UEs and sensors to the closest base station and establish connection
         self.connect_bs_ue()
         self.connect_bs_sensor()
 
@@ -447,93 +439,80 @@ class MComCore(gymnasium.Env):
         self.update_connections()
         self.update_connections_sensors()
 
+        # TODO: Improve this functionality
         # update UE positions in sensor logs
-        self.update_positions()
+        #self.update_sensor_logs()
 
         # Logging base station connections
-        # TODO: create one logging function for logging all connections
-        logging.info(f"Time step: {self.time} Logging BS-UE connections...")
         self.logger.log_all_connections()
-        logging.info(f"Time step: {self.time} Logging BS-Sensor connections...")
-        self.logger.log_all_connections_sensors()
      
         # Generate jobs for each UE and sensor
         logging.info(f"Time step: {self.time} Job generation starting...")
+
         for ue in self.users.values():
-            self.job_generation(ue)
+            self.job_generator.generate_job_ue(ue)
         for sensor in self.sensors.values():
-            self.job_generation_sensor(sensor)
+            self.job_generator.generate_job_sensor(sensor)
 
         logging.info(f"Time step: {self.time} Job generation terminated...")
 
-        # Log sensor and ue data uplink queues
-        # TODO: create one logging function for logging queues
-        logging.info(f"Time step: {self.time} Device uplink queues...")
-        self.logger.log_device_uplink_queue()
-        logging.info(f"Time step: {self.time} Sensor uplink queues...")
-        self.logger.log_sensor_uplink_queue()
-        logging.info(f"Time step: {self.time} Base station uplink queues...")
-        self.logger.log_bs_uplink_queue()
-        logging.info(f"Time step: {self.time} Base station downlink queues...")
-        self.logger.log_bs_downlink_queue()
+        # Log sensor and ue data queues
+        self.logger.log_all_queues()
 
-        # TODO: add a new apply_action function for the new problem of resource allocation
+        # apply handler to transform actions to expected shape
+        bandwidth_allocation, computational_allocation = self.handler.action(self, actions)
+        logging.info(f"Time step: {self.time} Communication allocation to UEs in percentage: {bandwidth_allocation}")
+        logging.info(f"Time step: {self.time} Computation allocation to UEs in percentage: {computational_allocation}")
+
+        self.resource_allocations = {}
         for bs in self.stations.values():
-            ue_bandwidth, sensor_bandwidth, ue_computational_power, sensor_computational_power = self.apply_action(bs, bandwidth_allocation, computational_allocation)
-
+            bandwidth_for_ues, bandwidth_for_sensors, computational_power_for_ues, computational_power_for_sensors = self.apply_action(bs, bandwidth_allocation, computational_allocation)
+            # Store the resource allocations for each BS in the dictionary
+            
+            self.resource_allocations[bs] = {
+                'bandwidth_for_ues': bandwidth_for_ues,
+                'bandwidth_for_sensors': bandwidth_for_sensors,
+                'computational_power_for_ues': computational_power_for_ues,
+                'computational_power_for_sensors': computational_power_for_sensors
+            }
+            
         # update connections' data rates after re-scheduling
         self.datarates = {}
         for bs in self.stations.values():
-            drates = self.station_allocation(bs, ue_bandwidth)
-            self.datarates.update(drates)
-            
-        # update sensor connections' data rates after re-scheduling
+            bs_bandwidth = self.resource_allocations[bs]['bandwidth_for_ues']
+            drates_ue = self.station_allocation(bs, bs_bandwidth)
+            self.datarates.update(drates_ue)
+
         self.datarates_sensor = {}
         for bs in self.stations.values():
-            drates_sensor = self.station_allocation_sensor(bs, sensor_bandwidth)
+            bs_bandwidth = self.resource_allocations[bs]['bandwidth_for_sensors']
+            drates_sensor = self.station_allocation_sensor(bs, bs_bandwidth)
             self.datarates_sensor.update(drates_sensor)
         
         # update macro (aggregated) data rates for each UE
         self.macro = self.macro_datarates(self.datarates)
 
         # Logging datarates
-        logging.info(f"Time step: {self.time} Data rates...")
-        self.logger.log_datarates()
-        self.logger.log_datarates_sensor()
+        self.logger.log_all_datarates()
 
         # Packet uplink transmission
         logging.info(f"Time step: {self.time} Job transfer uplink starting...")
-        self.data_transfer_manager.transfer_uplink_data()
+        self.data_transfer_manager.transfer_data_uplink()
         logging.info(f"Time step: {self.time} Job transfer uplink over...")
 
-        # Log sensor and ue data uplink queues
-        logging.info(f"Time step: {self.time} Device uplink queues...")
-        self.logger.log_device_uplink_queue()
-        logging.info(f"Time step: {self.time} Sensor uplink queues...")
-        self.logger.log_sensor_uplink_queue()
-        logging.info(f"Time step: {self.time} Base station uplink queues...")
-        self.logger.log_bs_uplink_queue()
-        logging.info(f"Time step: {self.time} Base station downlink queues...")
-        self.logger.log_bs_downlink_queue()
+        # Log sensor and ue data queues
+        self.logger.log_all_queues()
 
         # Process data in MEC servers
         logging.info(f"Time step: {self.time} Data processing starting...")
-        self.data_transfer_manager.process_data_mec(ue_computational_power, sensor_computational_power)
+        self.data_transfer_manager.process_data_mec(computational_power_for_ues, computational_power_for_sensors)
         logging.info(f"Time step: {self.time} Data processing over...")
 
-        # Log sensor and ue data uplink queues
-        logging.info(f"Time step: {self.time} Device uplink queues...")
-        self.logger.log_device_uplink_queue()
-        logging.info(f"Time step: {self.time} Sensor uplink queues...")
-        self.logger.log_sensor_uplink_queue()
-        logging.info(f"Time step: {self.time} Base station uplink queues...")
-        self.logger.log_bs_uplink_queue()
-        logging.info(f"Time step: {self.time} Base station downlink queues...")
-        self.logger.log_bs_downlink_queue()
+        # Log sensor and ue data queues
+        self.logger.log_all_queues()
 
-
-       # Log queue sizes
-        self.log_queue_sizes()
+        # Log queue sizes
+        #self.log_queue_sizes()
 
         # compute utilities from UEs' data rates & log its mean value
         self.utilities = {
@@ -613,7 +592,7 @@ class MComCore(gymnasium.Env):
             ue_datarates.update({ue: datarate + epsilon})
         return ue_datarates
 
-    def station_allocation(self, bs: BaseStation, ue_bandwidth: float) -> Dict:
+    def station_allocation(self, bs: BaseStation, bandwidth_for_ues: float) -> Dict:
         """Schedule BS's resources (e.g. phy. res. blocks) to connected UEs."""
         conns = self.connections[bs]
 
@@ -622,15 +601,14 @@ class MComCore(gymnasium.Env):
 
         # UE's max. data rate achievable when BS schedules all resources to it
         max_allocation = [
-            self.channel.datarate(bs, ue, snr) for snr, ue in zip(snrs, conns)
+            self.channel.datarate_split(bs, ue, snr, bandwidth_for_ues) for snr, ue in zip(snrs, conns)
         ]
-
         # BS shares resources among connected user equipments
-        rates = self.scheduler.share_ue(bs, max_allocation, ue_bandwidth)
+        rates = self.scheduler.share_ue(bs, max_allocation, bandwidth_for_ues)
 
         return {(bs, ue): rate for ue, rate in zip(conns, rates)}
     
-    def station_allocation_sensor(self, bs: BaseStation, sensor_bandwidth: float) -> Dict:
+    def station_allocation_sensor(self, bs: BaseStation, bandwidth_for_sensors: float) -> Dict:
         """Schedule BS's resources (e.g. phy. res. blocks) to connected sensors."""
         conns_sensor = self.connections_sensor[bs]
 
@@ -639,12 +617,11 @@ class MComCore(gymnasium.Env):
 
         # Sensor's max. data rate achievable when BS schedules all resources to it
         max_allocation = [
-            self.channel.datarate(bs, sensor, snr) for snr, sensor in zip(snrs_sensor, conns_sensor)
+            self.channel.datarate_split(bs, sensor, snr, bandwidth_for_sensors) for snr, sensor in zip(snrs_sensor, conns_sensor)
         ]
 
         # BS shares resources among connected sensors
-        #TODO: a new share() method can be written in RoundRobin class for the sensors, but this works fine as well
-        rates_sensor = self.scheduler.share_sensor(bs, max_allocation, sensor_bandwidth)
+        rates_sensor = self.scheduler.share_sensor(bs, max_allocation, bandwidth_for_sensors)
 
         return {(bs, sensor): rate for sensor, rate in zip(conns_sensor, rates_sensor)}
 

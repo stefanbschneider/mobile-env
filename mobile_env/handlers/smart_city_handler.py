@@ -16,25 +16,27 @@ class MComSmartCityHandler(Handler):
 
     @classmethod
     def action_space(cls, env) -> spaces.Box:
-        # Define continuous action space for bandwidth and computational power allocation
+        """Define continuous action space for bandwidth allocation and computational power allocation"""
         return spaces.Box(low=0.0, high=1.0, shape=(2,), dtype=np.float32)
 
     @classmethod
     def observation_space(cls, env) -> spaces.Box:
-        # Define observation space
+        """Define observation space"""
         size = cls.ue_obs_size(env)
         return spaces.Box(low=-1.0, high=1.0, shape=(env.NUM_USERS * size,))
 
     @classmethod
-    def action(cls, env, actions: Tuple[float, float]) -> Dict[str, float]:
+    def action(cls, env, actions: Tuple[float, float]) -> Tuple[float, float]:
         """Transform action to expected shape of core environment."""
-        assert len(actions) == 2, "Action must have two elements: bandwidth and computational power allocations."
+        assert len(actions) == 2, "Action must have two elements: bandwidth allocation and computational power allocation."
 
-        # Clip actions to ensure they are within the valid range
-        bandwidth_allocation = np.clip(actions[0], 0.0, 1.0)
-        computational_allocation = np.clip(actions[1], 0.0, 1.0)
+        bandwidth_allocation, computational_allocation = actions
 
-        return {"bandwidth_allocation": bandwidth_allocation, "computational_allocation": computational_allocation}
+        # Ensure actions are within valid range
+        bandwidth_allocation = max(0.0, min(1.0, bandwidth_allocation))
+        computational_allocation = max(0.0, min(1.0, computational_allocation))
+
+        return bandwidth_allocation, computational_allocation
 
     @classmethod
     def observation(cls, env) -> np.ndarray:

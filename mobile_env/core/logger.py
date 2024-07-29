@@ -5,17 +5,17 @@ class Logger:
         self.env = env
 
     def log_datarates(self) -> None:
-        # Logs data transfer rates of each connected ue-bs pair.
+        """Logs data transfer rates of each connected ue-bs pair."""
         for (bs, ue), rate in sorted(self.env.datarates.items(), key=lambda x: x[0][1].ue_id):
             logging.info(f"Time step: {self.env.time} Data transfer rate for {ue} connected to {bs} is : {rate}")
 
     def log_datarates_sensor(self) -> None:
-        # Logs data transfer rates of each connected sensor-bs pair.
+        """Logs data transfer rates of each connected sensor-bs pair."""
         for (bs, sensor), rate in sorted(self.env.datarates_sensor.items(), key=lambda x: x[0][1].sensor_id):
             logging.info(f"Time step: {self.env.time} Data transfer rate for {sensor} connected to {bs} is : {rate}")
 
     def log_device_uplink_queue(self) -> None:
-        # Logs the job indexes, initial sizes, and remaining sizes for every job in the uplink buffer of UEs.
+        """Logs the job indexes, initial sizes, and remaining sizes for every job in the uplink buffer of UEs."""
         for ue in self.env.users.values():
             buffer_size = ue.data_buffer_uplink.data_queue.qsize()
             if buffer_size > 0:
@@ -26,7 +26,7 @@ class Logger:
                         )
 
     def log_sensor_uplink_queue(self) -> None:
-        # Logs the job indexes, initial sizes, and remaining sizes for every job in the uplink buffer of sensors.
+        """Logs the job indexes, initial sizes, and remaining sizes for every job in the uplink buffer of sensors."""
         for sensor in self.env.sensors.values():
             buffer_size = sensor.data_buffer_uplink.data_queue.qsize()
             if buffer_size > 0:
@@ -37,7 +37,7 @@ class Logger:
                         )                 
                     
     def log_bs_uplink_queue(self) -> None:
-        # Logs the job indexes, initial sizes, and remaining sizes for every job in the BS queues.
+        """Logs the job indexes, initial sizes, and remaining sizes for every job in the BS queues."""
         for bs in self.env.stations.values():
             # Log jobs from user devices
             buffer_size_ue = bs.data_buffer_uplink_ue.data_queue.qsize()
@@ -58,7 +58,7 @@ class Logger:
                     )
 
     def log_bs_downlink_queue(self) -> None:
-        # Logs the job indexes, initial sizes, and remaining sizes for every job in the BS queues.
+        """"Logs the job indexes, initial sizes, and remaining sizes for every job in the BS queues."""
         for bs in self.env.stations.values():
             # Log jobs from user devices
             buffer_size_ue = bs.data_buffer_downlink_ue.data_queue.qsize()
@@ -78,8 +78,8 @@ class Logger:
                         f"Initial size: {job['initial_size']}, Remaining size: {job['remaining_size']}"
                     )
 
-    def log_all_connections(self) -> None:
-        # Log all connections between base stations and user equipment in one line.
+    def log_connections(self) -> None:
+        """Log all connections between base stations and user equipment in one line."""
         connection_strings = [
             f"BS {bs.bs_id}: [{','.join(map(str, sorted(ue.ue_id for ue in ues)))}]"
             for bs, ues in self.env.connections.items()
@@ -87,11 +87,35 @@ class Logger:
         log_message = "Connections UEs: " + "; ".join(connection_strings)
         logging.info(log_message)
 
-    def log_all_connections_sensors(self) -> None:
-        # Log all connections between base stations and sensors in one line.
+    def log_connections_sensors(self) -> None:
+        """Log all connections between base stations and sensors in one line."""
         connection_strings = [
             f"BS {bs.bs_id}: [{','.join(map(str, sorted(sensor.sensor_id for sensor in sensors)))}]"
             for bs, sensors in self.env.connections_sensor.items()
         ]
         log_message = "Connections Sensors: " + "; ".join(connection_strings)
         logging.info(log_message)
+
+    def log_all_connections(self) -> None:
+        """Log all connections between base stations and user equipment, as well as sensors."""
+        logging.info(f"Time step: {self.env.time} Logging BS-UE connections...")
+        self.log_connections()
+        logging.info(f"Time step: {self.env.time} Logging BS-Sensor connections...")
+        self.log_connections_sensors()
+
+    def log_all_queues(self) -> None:
+        """Log all job queues across devices, sensors, and base stations."""
+        logging.info(f"Time step: {self.env.time} Device uplink queues...")
+        self.log_device_uplink_queue()
+        logging.info(f"Time step: {self.env.time} Sensor uplink queues...")
+        self.log_sensor_uplink_queue()
+        logging.info(f"Time step: {self.env.time} Base station uplink queues...")
+        self.log_bs_uplink_queue()
+        logging.info(f"Time step: {self.env.time} Base station downlink queues...")
+        self.log_bs_downlink_queue()
+
+    def log_all_datarates(self) -> None:
+        """Log data transfer rates for all connected pairs of UEs and sensors."""
+        logging.info(f"Time step: {self.env.time} Data rates...")
+        self.log_datarates()
+        self.log_datarates_sensor()

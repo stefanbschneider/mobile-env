@@ -1,6 +1,6 @@
 from typing import Tuple
 from shapely.geometry import Point
-from mobile_env.core.buffers import Buffer
+from mobile_env.core.buffers import JobQueue
 
 
 class BaseStation:
@@ -21,11 +21,11 @@ class BaseStation:
         self.frequency = freq  # in MHz
         self.tx_power = tx  # in dBm
         self.height = height  # in m
-        self.computational_power = computational_power  # in FLOPS per timestep
-        self.data_buffer_uplink_ue = Buffer(size=1000)
-        self.data_buffer_uplink_sensor = Buffer(size=1000)
-        self.data_buffer_downlink_ue = Buffer(size=1000)
-        self.data_buffer_downlink_sensor = Buffer(size=1000)
+        self.computational_power = computational_power  # in FLOPS
+        self.data_buffer_uplink_ue = JobQueue(size=1000)
+        self.data_buffer_uplink_sensor = JobQueue(size=1000)
+        self.data_buffer_downlink_ue = JobQueue(size=1000)
+        self.data_buffer_downlink_sensor = JobQueue(size=1000)
 
     @property
     def point(self):
@@ -56,7 +56,7 @@ class UserEquipment:
         self.y: float = None
         self.stime: int = None
         self.extime: int = None
-        self.data_buffer_uplink = Buffer(size=1000)
+        self.data_buffer_uplink = JobQueue(size=1000)
 
     @property
     def point(self):
@@ -87,11 +87,14 @@ class Sensor:
         self.radius = radius
         self.logs = logs
         self.connected_base_station = BaseStation
-        self.data_buffer_uplink = Buffer(size=1000)
+        self.data_buffer_uplink = JobQueue(size=1000)
 
     @property
     def point(self):
         return Point(int(self.x), int(self.y))
+
+    def __str__(self):
+        return f"Sensor: {self.sensor_id}"
 
     def configure_sensors(self, sensors):
         for sensor in sensors:
@@ -101,6 +104,3 @@ class Sensor:
     def is_within_range(self, ue_point):
         """Check if a UE is within the sensor's range."""
         return self.point.distance(ue_point) <= self.radius
-
-    def __str__(self):
-        return f"Sensor: {self.sensor_id}"

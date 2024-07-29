@@ -77,7 +77,15 @@ class Channel:
             return bs.bw * np.log2(1 + snr)
 
         return 0.0
+    
+    @classmethod
+    def datarate_split(cls, bs: BaseStation, device: Device, snr: float, bandwidth: float):
+        """Calculate max. data rate for transmission between BS and a device (UE or sensor) according to the split."""
+        if snr > device.snr_threshold:
+            return bandwidth * np.log2(1 + snr)
 
+        return 0.0
+    
     @classmethod
     def boundary_collison(
         cls, theta: float, x0: float, y0: float, width: float, height: float
