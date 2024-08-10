@@ -503,7 +503,7 @@ class MComCore(gymnasium.Env):
         # Process data in MEC servers
         logging.info(f"Time step: {self.time} Data processing starting...")
         self.data_transfer_manager.process_data_mec(computational_power_for_ues, computational_power_for_sensors)
-        logging.info(f"Time step: {self.time} Data processing over...")
+        self.simulation_logger.default_logger.info(f"Time step: {self.time} Data processing over...")
 
         # Log sensor and ue data queues
         self.logger.log_all_queues()
