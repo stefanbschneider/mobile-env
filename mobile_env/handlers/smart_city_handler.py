@@ -3,6 +3,7 @@ from typing import Dict, Tuple
 import numpy as np
 from gymnasium import spaces
 import logging
+import pandas as pd
 
 from mobile_env.handlers.handler import Handler
 
@@ -50,42 +51,144 @@ class MComSmartCityHandler(Handler):
 
     @classmethod
     def reward(cls, env) -> float:
-        """Computes rewards for agent."""
-
+        """Process UE packets: apply penalties, rewards, and update the data frame."""
         total_reward = 0
-        R = 1
-        beta = 0.7
+        penalty = -10
 
-         # Find the UE packets accomplished at the current time step
-        accomplished_ue_packets = env.job_generator.packet_df_ue[env.job_generator.packet_df_ue['accomplished_computing_time'] == env.time]
+        # List of packets that exceeded the delay constraint or were accomplished
+        indices_to_remove = []
 
-        if accomplished_ue_packets.empty:
-            # No UE packets accomplished at this time step
-            return 0
+        for index, row in env.job_generator.packet_df_ue.iterrows():
+            dt = env.time - row['generating_time']
 
-        # Iterate over all accomplished UE packets
-        for _, ue_packet in accomplished_ue_packets.iterrows():
-            ue_generating_time = ue_packet['generating_time']
- 
-            # Find the sensor packet with the most recent accomplished computing time
-            latest_sensor_packet = env.job_generator.packet_df_sensor.loc[
-                env.job_generator.packet_df_sensor['accomplished_computing_time'].idxmax()
-            ]
-                
-            sensor_generating_time = latest_sensor_packet['generating_time']
+            if dt > row['e2e_delay_constraints']:
+                # Packet failed due to exceeding the delay constraint
+                total_reward += penalty
+                logging.warning(f"Time step: {env.time} Packet {row['packet_id']} from UE {row['user_id']} failed due to delay. Penalty applied.")
+                # Mark as accomplished with failure and remove from data frame
+                indices_to_remove.append(index)
+            elif row['is_accomplished'] and row['accomplished_computing_time'] == env.time:
+                # Packet succeeded within the time threshold
+                reward = cls.compute_reward(env, row)
+                total_reward += reward
+                logging.info(f"Time step: {env.time} Packet {row['packet_id']} from UE {row['user_id']} succeeded. Reward applied.")
+                indices_to_remove.append(index)
 
-            # Compute the delay
-            delay = ue_generating_time - sensor_generating_time
-            logging.info(f"The delay is: {delay}")
-
-            # Compute the reward based on the delay
-            # For simplicity, let's assume a linear reward function: reward = -delay
-            reward = R * (beta ** delay)
-
-            # Add the reward for this packet to the total reward
-            total_reward += reward
+        # Drop processed packets
+        if indices_to_remove:
+            env.job_generator.packet_df_ue.drop(indices_to_remove, inplace=True)
 
         return total_reward
+
+    @classmethod
+    def compute_reward(cls, env, ue_packet: pd.Series) -> float:
+        """Computes the reward based on the delay between the latest accomplished sensor packet and the UE packet."""
+        discount_factor = 0.9       # Discount factor for the reward calculation
+        base_reward = 10            # Base reward value
+
+        # Step 1: Find the latest accomplished sensor packet
+        accomplished_sensor_packets = env.job_generator.packet_df_sensor[
+            env.job_generator.packet_df_sensor['accomplished_computing_time'].notnull()
+        ]
+
+        if accomplished_sensor_packets.empty:
+            logging.warning("No accomplished sensor packets found.")
+            return 0
+
+        latest_sensor_packet = accomplished_sensor_packets.loc[
+            accomplished_sensor_packets['accomplished_computing_time'].idxmax()
+        ]
+
+        # Step 2: Calculate the delay
+        sensor_generating_time = latest_sensor_packet['generating_time']
+        ue_generating_time = ue_packet['generating_time']
+        delay = abs(ue_generating_time - sensor_generating_time)
+
+        # Step 3: Calculate the reward using the delay
+        reward = base_reward * (discount_factor ** delay)
+
+        logging.info(f"Time step: {env.time} Reward computed with delay {delay}: {reward}")
+
+        return reward
+
+    @classmethod
+    def compute_reward_with_delay_sign(cls, env, ue_packet: pd.Series) -> float:
+        """Computes the reward based on the delay between the latest accomplished sensor packet and the UE packet."""
+        positive_discount_factor = 0.9      # Discount factor for positive delay
+        negative_discount_factor = 0.8      # Discount factor for negative delay
+        base_reward = 10                    # Base reward value
+
+        # Step 1: Find the latest accomplished sensor packet
+        accomplished_sensor_packets = env.job_generator.packet_df_sensor[
+            env.job_generator.packet_df_sensor['accomplished_computing_time'].notnull()
+        ]
+
+        if accomplished_sensor_packets.empty:
+            logging.warning("No accomplished sensor packets found.")
+            return 0
+
+        latest_sensor_packet = accomplished_sensor_packets.loc[
+            accomplished_sensor_packets['accomplished_computing_time'].idxmax()
+        ]
+
+        # Step 2: Calculate the delay
+        sensor_generating_time = latest_sensor_packet['generating_time']
+        ue_generating_time = ue_packet['generating_time']
+        delay = ue_generating_time - sensor_generating_time
+
+        # Step 3: Calculate the reward using different discount factors for positive and negative delay
+        if delay > 0:
+            # Positive delay: UE packet generated after the sensor packet
+            reward = base_reward * (positive_discount_factor ** delay)
+        else:
+            # Negative delay: UE packet generated before the sensor packet
+            reward = base_reward * (negative_discount_factor ** abs(delay))
+
+        logging.info(f"Time step: {env.time} Reward computed with delay {delay}: {reward}")
+
+        return reward   
+    
+    @classmethod
+    def compute_reward_for_positive_delay(cls, env, ue_packet: pd.Series) -> float:
+        """Computes the reward based on the delay between the latest accomplished sensor packet and the UE packet,
+        considering only positive delays."""
+        positive_discount_factor = 0.9      # Discount factor for positive delay
+        base_reward = 10                    # Base reward value
+
+        # Step 1: Find sensor packets that have a positive delay relative to the UE packet
+        accomplished_sensor_packets = env.job_generator.packet_df_sensor[
+            env.job_generator.packet_df_sensor['accomplished_computing_time'].notnull()
+        ]
+
+        if accomplished_sensor_packets.empty:
+            logging.warning("No accomplished sensor packets found.")
+            return 0
+
+        # Filter sensor packets to only include those with a generating time before the UE packet's generating time
+        positive_delay_sensors = accomplished_sensor_packets[
+            accomplished_sensor_packets['generating_time'] <= ue_packet['generating_time']
+        ]
+
+        if positive_delay_sensors.empty:
+            logging.info("No sensor packets with positive delay relative to the UE packet.")
+            return 0
+
+        # Step 2: Find the latest accomplished sensor packet among those with a positive delay
+        latest_sensor_packet = positive_delay_sensors.loc[
+            positive_delay_sensors['accomplished_computing_time'].idxmax()
+        ]
+
+        # Step 3: Calculate the delay (since it's guaranteed to be positive or zero)
+        sensor_generating_time = latest_sensor_packet['generating_time']
+        ue_generating_time = ue_packet['generating_time']
+        delay = ue_generating_time - sensor_generating_time
+
+        # Step 4: Calculate the reward using the positive discount factor
+        reward = base_reward * (positive_discount_factor ** delay)
+
+        logging.info(f"Time step: {env.time} Reward computed with positive delay {delay}: {reward}")
+
+        return reward
     
     @classmethod
     def check(cls, env) -> None:

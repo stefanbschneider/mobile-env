@@ -18,7 +18,7 @@ class DataTransferManager:
             self._transfer_data_to_bs(bs, self.env.connections_sensor.get(bs, []))
 
     def process_data_mec(self, ue_computational_power: float, sensor_computational_power: float) -> None:
-        # Process data in MEC servers and write processed jobs into downlink queues.
+        """Process data in MEC servers and write processed jobs into downlink queues."""
         for bs in self.env.stations.values():
             self._process_data_for_bs(bs, ue_computational_power, sensor_computational_power)
 
@@ -34,7 +34,7 @@ class DataTransferManager:
             logging.warning(f"No data rate for uplink connection from {src} to {dst} for device {Device} and bs {BaseStation}. Packet transmission aborted.")
             return
 
-        while data_transfer_rate > 0 and not src_buffer.data_queue.empty():
+        while data_transfer_rate > 0 and not src_buffer.jobs_df.empty:
             job = src_buffer.peek_job()
 
             if job['serving_time_start'] is None:
@@ -83,14 +83,14 @@ class DataTransferManager:
 
     def _get_buffers(self, src: Union[UserEquipment, Sensor], dst: BaseStation) -> Tuple[JobQueue, JobQueue]:
         src_buffer = src.data_buffer_uplink
-        dst_buffer = dst.data_buffer_uplink_ue if isinstance(src, UserEquipment) else dst.data_buffer_uplink_sensor
+        dst_buffer = dst.transferred_jobs_ue if isinstance(src, UserEquipment) else dst.transferred_jobs_sensor
 
         return src_buffer, dst_buffer
 
     def _process_data_for_bs(self, bs: BaseStation, ue_computational_power: float, sensor_computational_power: float) -> None:
-        self._process_data(bs.data_buffer_uplink_ue, bs.data_buffer_downlink_ue, ue_computational_power)
+        self._process_data(bs.transferred_jobs_ue, bs.accomplished_jobs_ue, ue_computational_power)
         logging.warn(f"Time step: {self.env.time} UE jobs are processed.")
-        self._process_data(bs.data_buffer_uplink_sensor, bs.data_buffer_downlink_sensor, sensor_computational_power)
+        self._process_data(bs.transferred_jobs_sensor, bs.accomplished_jobs_sensor, sensor_computational_power)
         logging.warn(f"Time step: {self.env.time} Sensor jobs are processed.")
 
     def _process_data(self, uplink_buffer: JobQueue, downlink_buffer: JobQueue, computational_power: float) -> None:
@@ -99,7 +99,7 @@ class DataTransferManager:
             logging.warning(f"No computational power available at the MEC server of the base station.")
             return
 
-        while not uplink_buffer.data_queue.empty() and computational_power > 0:
+        while not uplink_buffer.jobs_df.empty and computational_power > 0:
             job = uplink_buffer.peek_job()  # Peek at the job without removing it
             if job and job['computational_requirement'] <= computational_power:
                 uplink_buffer.dequeue_job()  # Now remove the job
@@ -111,11 +111,17 @@ class DataTransferManager:
                 # Add the job to the downlink buffer
                 downlink_buffer.enqueue_job(job)
 
-                # Update accomplished_computing_time in the packets DataFrame
+                # Update accomplished_computing_time and mark as accomplished in the packets DataFrame
                 if job['device_type'] == 'user_device':
-                    self.job_generator.packet_df_ue.loc[self.job_generator.packet_df_ue['packet_id'] == job['index'], 'accomplished_computing_time'] = self.env.time
+                    self.job_generator.packet_df_ue.loc[
+                        self.job_generator.packet_df_ue['packet_id'] == job['index'], 
+                        ['is_accomplished', 'accomplished_computing_time']
+                    ] = [True, self.env.time]
                 elif job['device_type'] == 'sensor':
-                    self.job_generator.packet_df_sensor.loc[self.job_generator.packet_df_sensor['packet_id'] == job['index'], 'accomplished_computing_time'] = self.env.time
+                    self.job_generator.packet_df_sensor.loc[
+                        self.job_generator.packet_df_sensor['packet_id'] == job['index'], 
+                        ['is_accomplished', 'accomplished_computing_time']
+                    ] = [True, self.env.time]
                 else:
                     logging.warning(f"Unknown device type {job['device_type']}. Computing time not updated.")
 

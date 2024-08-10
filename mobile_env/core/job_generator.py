@@ -10,19 +10,14 @@ Job = Dict[str, Optional[Union[float, int]]]
 
 class JobGenerator:
     def __init__(self, env) -> None:
-
         self.env = env
-
-        # Initialize the JobGenerator with a counter for job indexing
         self.job_counter: int = 0
-
         self.packet_df_ue = pd.DataFrame(columns=[
-            'user_id', 'device_type', 'packet_id', 'generating_time', 
+            'user_id', 'device_type', 'packet_id', 'is_accomplished', 'generating_time', 
             'arrival_time', 'accomplished_computing_time', 'e2e_delay_constraints'
         ])
-
         self.packet_df_sensor = pd.DataFrame(columns=[
-            'user_id', 'device_type', 'packet_id', 'generating_time', 
+            'user_id', 'device_type', 'packet_id', 'is_accomplished', 'generating_time', 
             'arrival_time', 'accomplished_computing_time', 'e2e_delay_constraints'
         ])
 
@@ -87,6 +82,7 @@ class JobGenerator:
             'user_id': device_id,
             'device_type': device_type,
             'packet_id': job_index,
+            'is_accomplished': False,
             'generating_time': time,
             'arrival_time': None,
             'accomplished_computing_time': None,

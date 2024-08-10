@@ -22,10 +22,10 @@ class BaseStation:
         self.tx_power = tx  # in dBm
         self.height = height  # in m
         self.computational_power = computational_power  # in FLOPS
-        self.data_buffer_uplink_ue = JobQueue(size=1000)
-        self.data_buffer_uplink_sensor = JobQueue(size=1000)
-        self.data_buffer_downlink_ue = JobQueue(size=1000)
-        self.data_buffer_downlink_sensor = JobQueue(size=1000)
+        self.transferred_jobs_ue = JobQueue(size=1000)
+        self.transferred_jobs_sensor = JobQueue(size=1000)
+        self.accomplished_jobs_ue = JobQueue(size=1000)
+        self.accomplished_jobs_sensor = JobQueue(size=1000)
 
     @property
     def point(self):

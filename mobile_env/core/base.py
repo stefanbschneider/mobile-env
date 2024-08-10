@@ -69,6 +69,7 @@ class MComCore(gymnasium.Env):
         self.NUM_SENSORS = len(self.sensors)
 
         # define sizes of base feature set that can or cannot be observed
+        #TODO: Change the observations and feature_sizes
         self.feature_sizes = {
             "connections": self.NUM_STATIONS,
             "snrs": self.NUM_STATIONS,
@@ -241,7 +242,6 @@ class MComCore(gymnasium.Env):
 
         # reset time
         self.time = 0.0
-        self.current_time = 0
 
         # set seed
         if seed is not None:
@@ -287,6 +287,8 @@ class MComCore(gymnasium.Env):
         self.datarates_sensor = defaultdict(float)
         # reset UEs' utilities
         self.utilities = {}
+        # reset sensors utilities
+        self.utilities_sensor = {}
 
         # set time of last UE's departure
         self.max_departure = max(ue.extime for ue in self.users.values())
@@ -307,7 +309,6 @@ class MComCore(gymnasium.Env):
         # #reset the sensor's logs 
         # for sensor in self.sensors.values():
         #     sensor.logs.clear()
-        
         
         return self.handler.observation(self), info
 
@@ -332,11 +333,13 @@ class MComCore(gymnasium.Env):
     def check_connectivity(self, bs: BaseStation, ue: UserEquipment) -> bool:
         """Connection can be established if SNR exceeds threshold of UE."""
         snr = self.channel.snr(bs, ue)
+        logging.warning(f"snr is : {snr}")
         return snr > ue.snr_threshold
     
     def check_connectivity_sensor(self, bs: BaseStation, sensor: Sensor) -> bool:
         """Connection can be established if SNR exceeds threshold of sensor."""
         snr = self.channel.snr(bs, sensor)
+        logging.warning(f"snr is : {snr}")
         return snr > sensor.snr_threshold
 
     def available_connections(self, ue: UserEquipment) -> Set:
@@ -438,7 +441,8 @@ class MComCore(gymnasium.Env):
         self.update_connections_sensors()
 
         # update UE positions in sensor logs
-        self.update_sensor_logs()
+        #TODO: check the fucntion, if it is working properly
+        #self.update_sensor_logs()
 
         # Logging base station connections
         self.logger.log_all_connections()
@@ -454,7 +458,7 @@ class MComCore(gymnasium.Env):
         logging.info(f"Time step: {self.time} Job generation terminated...")
 
         # Log sensor and ue data queues
-        self.logger.log_all_queues()
+        #self.logger.log_all_queues()
 
         # apply handler to transform actions to expected shape
         bandwidth_allocation, computational_allocation = self.handler.action(self, actions)
@@ -498,15 +502,15 @@ class MComCore(gymnasium.Env):
         logging.info(f"Time step: {self.time} Job transfer uplink over...")
 
         # Log sensor and ue data queues
-        self.logger.log_all_queues()
+        #self.logger.log_all_queues()
 
         # Process data in MEC servers
         logging.info(f"Time step: {self.time} Data processing starting...")
         self.data_transfer_manager.process_data_mec(computational_power_for_ues, computational_power_for_sensors)
-        self.simulation_logger.default_logger.info(f"Time step: {self.time} Data processing over...")
+        logging.info(f"Time step: {self.time} Data processing over...")
 
         # Log sensor and ue data queues
-        self.logger.log_all_queues()
+        #self.logger.log_all_queues()
 
         # Log queue sizes
         #self.log_queue_sizes()
@@ -527,7 +531,6 @@ class MComCore(gymnasium.Env):
 
         # compute rewards from utility for each UE
         # method is defined by handler according to strategy pattern
-        # TODO: implement a new way to compute rewards because this strategy computes rewards according to utility for each EU based on the datarate
         rewards = self.handler.reward(self)
 
         # evaluate metrics and update tracked metrics given the core simulation
@@ -554,7 +557,6 @@ class MComCore(gymnasium.Env):
 
         # update internal time of environment
         self.time += 1
-        self.current_time += self.time_step
 
         # check whether episode is done & close the environment
         if self.time_is_up and self.window:
@@ -1034,16 +1036,16 @@ class MComCore(gymnasium.Env):
         """Logs the current queue sizes of all entities."""
         self.queue_logs['time'].append(self.time)
 
-        bs_uplink_ue_sizes = [bs.data_buffer_uplink_ue.data_queue.qsize() for bs in self.stations.values()]
+        bs_uplink_ue_sizes = [bs.transferred_jobs_ue.data_queue.qsize() for bs in self.stations.values()]
         self.queue_logs['bs_uplink_ue_queues'].append(bs_uplink_ue_sizes)
 
-        bs_downlink_ue_sizes = [bs.data_buffer_downlink_ue.data_queue.qsize() for bs in self.stations.values()]
+        bs_downlink_ue_sizes = [bs.accomplished_jobs_ue.data_queue.qsize() for bs in self.stations.values()]
         self.queue_logs['bs_downlink_ue_queues'].append(bs_downlink_ue_sizes)
 
-        bs_uplink_sensor_sizes = [bs.data_buffer_uplink_sensor.data_queue.qsize() for bs in self.stations.values()]
+        bs_uplink_sensor_sizes = [bs.transferred_jobs_sensor.data_queue.qsize() for bs in self.stations.values()]
         self.queue_logs['bs_uplink_sensor_queues'].append(bs_uplink_sensor_sizes)
 
-        bs_downlink_sensor_sizes = [bs.data_buffer_downlink_sensor.data_queue.qsize() for bs in self.stations.values()]
+        bs_downlink_sensor_sizes = [bs.accomplished_jobs_sensor.data_queue.qsize() for bs in self.stations.values()]
         self.queue_logs['bs_downlink_sensor_queues'].append(bs_downlink_sensor_sizes)
 
         ue_uplink_sizes = [ue.data_buffer_uplink.data_queue.qsize() for ue in self.users.values()]
