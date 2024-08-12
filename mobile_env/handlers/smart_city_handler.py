@@ -107,7 +107,7 @@ class MComSmartCityHandler(Handler):
         # Step 3: Calculate the reward using the delay
         reward = base_reward * (discount_factor ** delay)
 
-        logging.info(f"Time step: {env.time} Reward computed with delay {delay}: {reward}")
+        logging.info(f"Time step: {env.time} Reward computed {reward} with delay: {delay}")
 
         return reward
 
@@ -144,7 +144,7 @@ class MComSmartCityHandler(Handler):
             # Negative delay: UE packet generated before the sensor packet
             reward = base_reward * (negative_discount_factor ** abs(delay))
 
-        logging.info(f"Time step: {env.time} Reward computed with delay {delay}: {reward}")
+        logging.info(f"Time step: {env.time} Reward computed {reward} with delay: {delay}")
 
         return reward   
     
@@ -186,7 +186,7 @@ class MComSmartCityHandler(Handler):
         # Step 4: Calculate the reward using the positive discount factor
         reward = base_reward * (positive_discount_factor ** delay)
 
-        logging.info(f"Time step: {env.time} Reward computed with positive delay {delay}: {reward}")
+        logging.info(f"Time step: {env.time} Reward computed {reward} with delay: {delay}")
 
         return reward
     

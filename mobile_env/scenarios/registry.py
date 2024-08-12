@@ -2,15 +2,12 @@ import itertools
 
 import gymnasium
 
-from mobile_env.handlers.central import MComCentralHandler
-from mobile_env.handlers.multi_agent import MComMAHandler
-from mobile_env.scenarios.large import MComLarge
-from mobile_env.scenarios.medium import MComMedium
-from mobile_env.scenarios.small import MComSmall
+from mobile_env.handlers.smart_city_handler import MComSmartCityHandler
 from mobile_env.scenarios.smart_city import MComSmartCity
 
-scenarios = {"small": MComSmall, "medium": MComMedium, "large": MComLarge, "smart_city": MComSmartCity}
-handlers = {"ma": MComMAHandler, "central": MComCentralHandler}
+
+scenarios = {"smart_city": MComSmartCity}
+handlers = {"smart_city_handler": MComSmartCityHandler}
 
 for scenario, handler in itertools.product(scenarios, handlers):
     env_name = scenarios[scenario].__name__

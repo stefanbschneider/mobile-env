@@ -21,7 +21,6 @@ from mobile_env.core.movement import RandomWaypointMovement
 from mobile_env.core.schedules import ResourceFair, RateFair, ProportionalFair, RoundRobin
 from mobile_env.core.util import BS_SYMBOL, SENSOR_SYMBOL, deep_dict_merge
 from mobile_env.core.utilities import BoundedLogUtility
-from mobile_env.handlers.central import MComCentralHandler
 from mobile_env.core.buffers import JobQueue
 from mobile_env.core.job_generator import JobGenerator
 from mobile_env.core.data_transfer import DataTransferManager
@@ -333,13 +332,11 @@ class MComCore(gymnasium.Env):
     def check_connectivity(self, bs: BaseStation, ue: UserEquipment) -> bool:
         """Connection can be established if SNR exceeds threshold of UE."""
         snr = self.channel.snr(bs, ue)
-        logging.warning(f"snr is : {snr}")
         return snr > ue.snr_threshold
     
     def check_connectivity_sensor(self, bs: BaseStation, sensor: Sensor) -> bool:
         """Connection can be established if SNR exceeds threshold of sensor."""
         snr = self.channel.snr(bs, sensor)
-        logging.warning(f"snr is : {snr}")
         return snr > sensor.snr_threshold
 
     def available_connections(self, ue: UserEquipment) -> Set:
@@ -408,6 +405,7 @@ class MComCore(gymnasium.Env):
                     self.connections_sensor[closest_bs] = set()
                 self.connections_sensor[closest_bs].add(sensor)
 
+    #TODO: improve this functionality
     def update_sensor_logs(self):
         '''Checks if UE is in range and adds the timestamp to the log of the UE'''
         for ue in self.users.values(): 
@@ -441,7 +439,7 @@ class MComCore(gymnasium.Env):
         self.update_connections_sensors()
 
         # update UE positions in sensor logs
-        #TODO: check the fucntion, if it is working properly
+        #TODO: check the function, if it is working properly
         #self.update_sensor_logs()
 
         # Logging base station connections
@@ -458,18 +456,18 @@ class MComCore(gymnasium.Env):
         logging.info(f"Time step: {self.time} Job generation terminated...")
 
         # Log sensor and ue data queues
-        #self.logger.log_all_queues()
+        self.logger.log_all_queues()
 
         # apply handler to transform actions to expected shape
         bandwidth_allocation, computational_allocation = self.handler.action(self, actions)
-        logging.info(f"Time step: {self.time} Communication allocation to UEs in percentage: {bandwidth_allocation}")
-        logging.info(f"Time step: {self.time} Computation allocation to UEs in percentage: {computational_allocation}")
+        logging.info(f"Time step: {self.time} Communication allocation to UEs in percentage: {bandwidth_allocation * 100:.2f} %")
+        logging.info(f"Time step: {self.time} Computation allocation to UEs in percentage: {computational_allocation * 100:.2f} %")
 
+        # Store the resource allocations for each BS in the dictionary
         self.resource_allocations = {}
         for bs in self.stations.values():
             bandwidth_for_ues, bandwidth_for_sensors, computational_power_for_ues, computational_power_for_sensors = self.apply_action(bs, bandwidth_allocation, computational_allocation)
-            # Store the resource allocations for each BS in the dictionary
-            
+
             self.resource_allocations[bs] = {
                 'bandwidth_for_ues': bandwidth_for_ues,
                 'bandwidth_for_sensors': bandwidth_for_sensors,
@@ -489,7 +487,6 @@ class MComCore(gymnasium.Env):
             bs_bandwidth = self.resource_allocations[bs]['bandwidth_for_sensors']
             drates_sensor = self.station_allocation_sensor(bs, bs_bandwidth)
             self.datarates_sensor.update(drates_sensor)
-        
         # update macro (aggregated) data rates for each UE
         self.macro = self.macro_datarates(self.datarates)
 
@@ -502,7 +499,7 @@ class MComCore(gymnasium.Env):
         logging.info(f"Time step: {self.time} Job transfer uplink over...")
 
         # Log sensor and ue data queues
-        #self.logger.log_all_queues()
+        self.logger.log_all_queues()
 
         # Process data in MEC servers
         logging.info(f"Time step: {self.time} Data processing starting...")
@@ -510,7 +507,7 @@ class MComCore(gymnasium.Env):
         logging.info(f"Time step: {self.time} Data processing over...")
 
         # Log sensor and ue data queues
-        #self.logger.log_all_queues()
+        self.logger.log_all_queues()
 
         # Log queue sizes
         #self.log_queue_sizes()
@@ -529,11 +526,11 @@ class MComCore(gymnasium.Env):
             ue: self.utility.scale(util) for ue, util in self.utilities.items()
         }
 
-        # compute rewards from utility for each UE
-        # method is defined by handler according to strategy pattern
+        # compute rewards
         rewards = self.handler.reward(self)
 
         # evaluate metrics and update tracked metrics given the core simulation
+        #TODO: check what does this monitor class do
         self.monitor.update(self)
 
         # move user equipments around; update positions of UEs
@@ -604,8 +601,9 @@ class MComCore(gymnasium.Env):
 
         # UE's max. data rate achievable when BS schedules all resources to it
         max_allocation = [
-            self.channel.datarate_split(bs, ue, snr, bandwidth_for_ues) for snr, ue in zip(snrs, conns)
+            self.channel.data_rate(bs, ue, snr, bandwidth_for_ues) for snr, ue in zip(snrs, conns)
         ]
+
         # BS shares resources among connected user equipments
         rates = self.scheduler.share_ue(bs, max_allocation, bandwidth_for_ues)
 
@@ -620,7 +618,7 @@ class MComCore(gymnasium.Env):
 
         # Sensor's max. data rate achievable when BS schedules all resources to it
         max_allocation = [
-            self.channel.datarate_split(bs, sensor, snr, bandwidth_for_sensors) for snr, sensor in zip(snrs_sensor, conns_sensor)
+            self.channel.data_rate(bs, sensor, snr, bandwidth_for_sensors) for snr, sensor in zip(snrs_sensor, conns_sensor)
         ]
 
         # BS shares resources among connected sensors

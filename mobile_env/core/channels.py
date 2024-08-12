@@ -79,8 +79,8 @@ class Channel:
         return 0.0
     
     @classmethod
-    def datarate_split(cls, bs: BaseStation, device: Device, snr: float, bandwidth: float):
-        """Calculate max. data rate for transmission between BS and a device (UE or sensor) according to the split."""
+    def data_rate(cls, bs: BaseStation, device: Device, snr: float, bandwidth: float):
+        """Calculate max. data rate for transmission between BS and a device (UE or sensor) according to the bandwidth allocated."""
         if snr > device.snr_threshold:
             return bandwidth * np.log2(1 + snr)
 
