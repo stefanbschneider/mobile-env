@@ -13,12 +13,12 @@ class JobGenerator:
         self.env = env
         self.job_counter: int = 0
         self.packet_df_ue = pd.DataFrame(columns=[
-            'user_id', 'device_type', 'packet_id', 'is_accomplished', 'generating_time', 
-            'arrival_time', 'accomplished_computing_time', 'e2e_delay_constraints'
+            'packet_id', 'device_type', 'device_id', 'is_accomplished', 'creation_time',
+            'arrival_time', 'accomplished_time', 'e2e_delay_threshold'
         ])
         self.packet_df_sensor = pd.DataFrame(columns=[
-            'user_id', 'device_type', 'packet_id', 'is_accomplished', 'generating_time', 
-            'arrival_time', 'accomplished_computing_time', 'e2e_delay_constraints'
+            'packet_id', 'device_type', 'device_id', 'is_accomplished', 'creation_time',
+            'arrival_time', 'accomplished_time', 'e2e_delay_threshold'
         ])
 
     def _generate_index(self) -> int:
@@ -30,9 +30,9 @@ class JobGenerator:
     def _generate_communication_request(device_type: str) -> float:
         # Generate data size for communication request based on device type
         if device_type == 'sensor':
-            poisson_lambda = 2.0    # Mean size for sensors in MB
+            poisson_lambda = 2.0        # Mean size for sensors in MB
         elif device_type == 'user_device':
-            poisson_lambda = 15.0   # Mean size for user devices in MB
+            poisson_lambda = 15.0       # Mean size for user devices in MB
         else:
             raise ValueError("Unknown device category. Expected 'sensor' or 'user_device'.")
 
@@ -40,56 +40,58 @@ class JobGenerator:
         request_size = np.random.poisson(lam=poisson_lambda)
     
         # Ensure a non-zero value for request size
-        return max(request_size, 1)  # Return at least 1 MB if generated size is 0
+        return max(request_size, 1.0)     # Return at least 1 MB if generated size is 0
     
     @staticmethod
-    def _generate_computational_requirement(device_type: str) -> int:
+    def _generate_computation_request(device_type: str) -> int:
         # Generate the computational requirement for a device based on its category.
         if device_type == 'sensor':
-            computational_power = 10    # Computational requirement in FLOPS for sensors
+            poisson_lambda = 10.0    # Computational requirement in FLOPS for sensors
         elif device_type == 'user_device':
-            computational_power = 50    # Computational requirement in FLOPS for user devices
+            poisson_lambda = 50.0    # Computational requirement in FLOPS for user devices
         else:
             raise ValueError("Unknown device category. Expected 'sensor' or 'user_device'.")
         
-        return computational_power
+        # Generate computation request using Poisson distribution
+        computation_request = np.random.poisson(lam=poisson_lambda)
+    
+        return max(computation_request, 10.0)
 
     def _generate_job(self, time: float, device_id: int, device_type: str) -> Job:
-        # Generate jobs for the sensors and UEs
+        # Generate jobs for devices
         job_index = self._generate_index()
-        initial_size = self._generate_communication_request(device_type)
-        computational_requirement = self._generate_computational_requirement(device_type)
+        communication_request_size = self._generate_communication_request(device_type)
+        computation_request = self._generate_computation_request(device_type)
 
         # Create a new job record
         job = {
-            'index': job_index,
+            'packet_id': job_index,
+            'device_type': device_type,
+            'device_id': device_id,
             'serving_bs': None,
-            'initial_size': initial_size,
-            'remaining_size': initial_size,
             'creation_time': time,
+            'computation_request': computation_request,
+            'initial_request_size': communication_request_size,
+            'remaining_request_size': communication_request_size,
             'serving_time_start': None,
             'serving_time_end': None,
             'serving_time_total': None,
-            'device_type': device_type,  # Added type to distinguish between sensor and user device jobs
-            'device_id': device_id,
             'processing_time': None,
-            'computational_requirement': computational_requirement,
-            'target_id': None
         }
 
         # For reward computation, create a data frame
         packet = {
-            'user_id': device_id,
-            'device_type': device_type,
             'packet_id': job_index,
+            'device_type': device_type,
+            'device_id': device_id,
             'is_accomplished': False,
-            'generating_time': time,
+            'creation_time': time,
             'arrival_time': None,
-            'accomplished_computing_time': None,
-            'e2e_delay_constraints': 10
+            'accomplished_time': None,
+            'e2e_delay_threshold': 10
         }
 
-        # Convert job to DataFrame and concatenate with existing DataFrame
+        # Convert job to data frame and concatenate with existing data frame
         packet_df = pd.DataFrame([packet])
         if device_type == 'sensor':
             self.packet_df_sensor = pd.concat([self.packet_df_sensor, packet_df], ignore_index=True)
@@ -102,21 +104,27 @@ class JobGenerator:
     
     def generate_job_ue(self, ue: UserEquipment) -> None:
         """Generate jobs for user equipments for device updates."""
-        if random.random() < 0.5:  # Example probability for job generation
+        if random.random() < 0.5:
             job = self._generate_job(self.env.time, ue.ue_id, "user_device")
             if ue.data_buffer_uplink.enqueue_job(job):
-                logging.info(f"Time step: {self.env.time} Job generated: {job['index']} at time: {job['creation_time']} by {job['device_type']} {job['device_id']} with initial size of {job['initial_size']} and remaining size of {job['remaining_size']}")
+                logging.info(
+                    f"Time step: {self.env.time} Job generated: {job['packet_id']} by {job['device_type']} {job['device_id']} " 
+                    f"with initial size of {job['initial_request_size']} MB and computational request of {job['computation_request']} FLOPS"
+                )
 
     def generate_job_sensor(self, sensor: Sensor) -> None:
         """Generate jobs for sensors for environmental updates."""
         job = self._generate_job(self.env.time, sensor.sensor_id, "sensor")
         if sensor.data_buffer_uplink.enqueue_job(job):
-            logging.info(f"Time step: {self.env.time} Job generated: {job['index']} at time: {job['creation_time']} by {job['device_type']} {job['device_id']} with initial size of {job['initial_size']} and remaining size of {job['remaining_size']}")
+            logging.info(
+                f"Time step: {self.env.time} Job generated: {job['packet_id']} by {job['device_type']} {job['device_id']} "
+                f"with initial size of {job['initial_request_size']} MB and computational request of {job['computation_request']} FLOPS"
+            )
 
-    def log_packets_ue(self) -> None:
-        """Log the DataFrame at the current time step"""
+    def log_df_ue(self) -> None:
+        """Log the data frame of UEs at the current time step."""
         logging.info(f"{self.packet_df_ue}")
     
-    def log_packets_sensor(self) -> None:
-        """Log the DataFrame at the current time step"""
+    def log_df_sensor(self) -> None:
+        """Log the data frame of sensors at the current time step."""
         logging.info(f"{self.packet_df_sensor}")

@@ -7,69 +7,77 @@ class Logger:
     def log_datarates(self) -> None:
         """Logs data transfer rates of each connected ue-bs pair."""
         for (bs, ue), rate in sorted(self.env.datarates.items(), key=lambda x: x[0][1].ue_id):
-            logging.info(f"Time step: {self.env.time} Data transfer rate for {ue} connected to {bs} is : {rate}")
+            logging.info(f"Time step: {self.env.time} Data transfer rate for {ue} connected to {bs} is : {rate} MB")
 
     def log_datarates_sensor(self) -> None:
         """Logs data transfer rates of each connected sensor-bs pair."""
         for (bs, sensor), rate in sorted(self.env.datarates_sensor.items(), key=lambda x: x[0][1].sensor_id):
-            logging.info(f"Time step: {self.env.time} Data transfer rate for {sensor} connected to {bs} is : {rate}")
+            logging.info(f"Time step: {self.env.time} Data transfer rate for {sensor} connected to {bs} is : {rate} MB")
 
     def log_device_uplink_queue(self) -> None:
         """Logs the job indexes, initial sizes, and remaining sizes for every job in the uplink buffer of UEs."""
         for ue in self.env.users.values():
-            if not ue.data_buffer_uplink.jobs_df.empty:
-                for _, job in ue.data_buffer_uplink.jobs_df.iterrows():
+            buffer_size = ue.data_buffer_uplink.data_queue.qsize()
+            if buffer_size > 0:
+                for job in list(ue.data_buffer_uplink.data_queue.queue):
                     logging.info(
-                        f"Time step: {self.env.time} Device: {ue.ue_id}, Job index: {job['index']}, "
-                        f"Initial size: {job['initial_size']}, Remaining size: {job['remaining_size']}"
+                        f"Time step: {self.env.time} Device: {ue.ue_id}, Job index: {job['packet_id']}, "
+                        f"Initial size: {job['initial_request_size']} MB, Remaining size: {job['remaining_request_size']} MB, "
+                        f"Computation request: {job['computation_request']} FLOPS"
                     )
 
     def log_sensor_uplink_queue(self) -> None:
         """Logs the job indexes, initial sizes, and remaining sizes for every job in the uplink buffer of sensors."""
         for sensor in self.env.sensors.values():
-            if not sensor.data_buffer_uplink.jobs_df.empty:
-                for _, job in sensor.data_buffer_uplink.jobs_df.iterrows():
+            buffer_size = sensor.data_buffer_uplink.data_queue.qsize()
+            if buffer_size > 0:
+                for job in list(sensor.data_buffer_uplink.data_queue.queue):
                     logging.info(
-                        f"Time step: {self.env.time} Sensor: {sensor.sensor_id}, Job index: {job['index']}, "
-                        f"Initial size: {job['initial_size']}, Remaining size: {job['remaining_size']}"
+                        f"Time step: {self.env.time} Sensor: {sensor.sensor_id}, Job index: {job['packet_id']}, "
+                        f"Initial size: {job['initial_request_size']} MB, Remaining size: {job['remaining_request_size']} MB, "
+                        f"Computation request: {job['computation_request']} FLOPS"
                     )                 
                     
-    def log_bs_uplink_queue(self) -> None:
+    def log_bs_transferred_jobs_queue(self) -> None:
         """Logs the job indexes, initial sizes, and remaining sizes for every job in the BS uplink queues."""
         for bs in self.env.stations.values():
             # Log jobs from user devices
-            if not bs.transferred_jobs_ue.jobs_df.empty:
-                for _, job in bs.transferred_jobs_ue.jobs_df.iterrows():
+            buffer_size_ue = bs.transferred_jobs_ue.data_queue.qsize()
+            if buffer_size_ue > 0:
+                for job in list(bs.transferred_jobs_ue.data_queue.queue):
                     logging.info(
-                        f"Time step: {self.env.time} Base station: {bs.bs_id}, Device Job index: {job['index']}, "
-                        f"Initial size: {job['initial_size']}, Remaining size: {job['remaining_size']}"
+                        f"Time step: {self.env.time} BS: {bs.bs_id}, UE: {job['device_id']}, Job index: {job['packet_id']}, "
+                        f"Initial size: {job['initial_request_size']} MB and Computational request:{job['computation_request']} FLOPS"
                     )
 
             # Log jobs from sensors
-            if not bs.transferred_jobs_sensor.jobs_df.empty:
-                for _, job in bs.transferred_jobs_sensor.jobs_df.iterrows():
+            buffer_size_sensor = bs.transferred_jobs_sensor.data_queue.qsize()
+            if buffer_size_sensor > 0:
+                for job in list(bs.transferred_jobs_sensor.data_queue.queue):
                     logging.info(
-                        f"Time step: {self.env.time} Base station: {bs.bs_id}, Sensor Job index: {job['index']}, "
-                        f"Initial size: {job['initial_size']}, Remaining size: {job['remaining_size']}"
+                        f"Time step: {self.env.time} BS: {bs.bs_id}, Sensor: {job['device_id']}, Job index: {job['packet_id']}, "
+                        f"Initial size: {job['initial_request_size']} MB and Computational request:{job['computation_request']} FLOPS"
                     )
 
-    def log_bs_downlink_queue(self) -> None:
+    def log_bs_accomplished_jobs_queue(self) -> None:
         """Logs the job indexes, initial sizes, and remaining sizes for every job in the BS downlink queues."""
         for bs in self.env.stations.values():
             # Log jobs from user devices
-            if not bs.accomplished_jobs_ue.jobs_df.empty:
-                for _, job in bs.accomplished_jobs_ue.jobs_df.iterrows():
+            buffer_size_ue = bs.accomplished_jobs_ue.data_queue.qsize()
+            if buffer_size_ue > 0:
+                for job in list(bs.accomplished_jobs_ue.data_queue.queue):
                     logging.info(
-                        f"Time step: {self.env.time} Base station: {bs.bs_id}, Device Job index: {job['index']}, "
-                        f"Initial size: {job['initial_size']}, Remaining size: {job['remaining_size']}"
+                        f"Time step: {self.env.time} BS: {bs.bs_id}, UE: {job['device_id']}, Job index: {job['packet_id']}, "
+                        f"Initial size: {job['initial_request_size']} MB and Computational request:{job['computation_request']} FLOPS"
                     )
 
             # Log jobs from sensors
-            if not bs.accomplished_jobs_sensor.jobs_df.empty:
-                for _, job in bs.accomplished_jobs_sensor.jobs_df.iterrows():
+            buffer_size_sensor = bs.accomplished_jobs_sensor.data_queue.qsize()
+            if buffer_size_sensor > 0:
+                for job in list(bs.accomplished_jobs_sensor.data_queue.queue):
                     logging.info(
-                        f"Time step: {self.env.time} Base station: {bs.bs_id}, Sensor Job index: {job['index']}, "
-                        f"Initial size: {job['initial_size']}, Remaining size: {job['remaining_size']}"
+                        f"Time step: {self.env.time} BS: {bs.bs_id}, Sensor: {job['device_id']}, Job index: {job['packet_id']}, "
+                        f"Initial size: {job['initial_request_size']} MB and Computational request:{job['computation_request']} FLOPS"
                     )
 
     def log_connections(self) -> None:
@@ -79,7 +87,7 @@ class Logger:
             for bs, ues in self.env.connections.items()
         ]
         log_message = "Connections UEs: " + "; ".join(connection_strings)
-        logging.info(log_message)
+        logging.info(f"Time step: {self.env.time} {log_message}")
 
     def log_connections_sensors(self) -> None:
         """Log all connections between base stations and sensors in one line."""
@@ -88,7 +96,7 @@ class Logger:
             for bs, sensors in self.env.connections_sensor.items()
         ]
         log_message = "Connections Sensors: " + "; ".join(connection_strings)
-        logging.info(log_message)
+        logging.info(f"Time step: {self.env.time} {log_message}")
 
     def log_all_connections(self) -> None:
         """Log all connections between base stations and user equipment, as well as sensors."""
@@ -104,9 +112,9 @@ class Logger:
         logging.info(f"Time step: {self.env.time} Sensor uplink queues...")
         self.log_sensor_uplink_queue()
         logging.info(f"Time step: {self.env.time} Base station queue for transferred jobs...")
-        self.log_bs_uplink_queue()
+        self.log_bs_transferred_jobs_queue()
         logging.info(f"Time step: {self.env.time} Base station queue for accomplished jobs...")
-        self.log_bs_downlink_queue()
+        self.log_bs_accomplished_jobs_queue()
 
     def log_all_datarates(self) -> None:
         """Log data transfer rates for all connected pairs of UEs and sensors."""

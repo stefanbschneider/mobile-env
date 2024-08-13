@@ -59,19 +59,19 @@ class MComSmartCityHandler(Handler):
         indices_to_remove = []
 
         for index, row in env.job_generator.packet_df_ue.iterrows():
-            dt = env.time - row['generating_time']
+            dt = env.time - row['creation_time']
 
-            if dt > row['e2e_delay_constraints']:
+            if dt > row['e2e_delay_threshold']:
                 # Packet failed due to exceeding the delay constraint
                 total_reward += penalty
-                logging.warning(f"Time step: {env.time} Packet {row['packet_id']} from UE {row['user_id']} failed due to delay. Penalty applied.")
+                logging.warning(f"Time step: {env.time} Packet {row['packet_id']} from UE {row['device_id']} failed due to delay. Penalty applied.")
                 # Mark as accomplished with failure and remove from data frame
                 indices_to_remove.append(index)
-            elif row['is_accomplished'] and row['accomplished_computing_time'] == env.time:
+            elif row['is_accomplished'] and row['accomplished_time'] == env.time:
                 # Packet succeeded within the time threshold
                 reward = cls.compute_reward(env, row)
                 total_reward += reward
-                logging.info(f"Time step: {env.time} Packet {row['packet_id']} from UE {row['user_id']} succeeded. Reward applied.")
+                logging.info(f"Time step: {env.time} Packet {row['packet_id']} from UE {row['device_id']} succeeded. Reward applied.")
                 indices_to_remove.append(index)
 
         # Drop processed packets
@@ -88,7 +88,7 @@ class MComSmartCityHandler(Handler):
 
         # Step 1: Find the latest accomplished sensor packet
         accomplished_sensor_packets = env.job_generator.packet_df_sensor[
-            env.job_generator.packet_df_sensor['accomplished_computing_time'].notnull()
+            env.job_generator.packet_df_sensor['accomplished_time'].notnull()
         ]
 
         if accomplished_sensor_packets.empty:
@@ -96,12 +96,12 @@ class MComSmartCityHandler(Handler):
             return 0
 
         latest_sensor_packet = accomplished_sensor_packets.loc[
-            accomplished_sensor_packets['accomplished_computing_time'].idxmax()
+            accomplished_sensor_packets['accomplished_time'].idxmax()
         ]
 
         # Step 2: Calculate the delay
-        sensor_generating_time = latest_sensor_packet['generating_time']
-        ue_generating_time = ue_packet['generating_time']
+        sensor_generating_time = latest_sensor_packet['creation_time']
+        ue_generating_time = ue_packet['creation_time']
         delay = abs(ue_generating_time - sensor_generating_time)
 
         # Step 3: Calculate the reward using the delay
@@ -120,7 +120,7 @@ class MComSmartCityHandler(Handler):
 
         # Step 1: Find the latest accomplished sensor packet
         accomplished_sensor_packets = env.job_generator.packet_df_sensor[
-            env.job_generator.packet_df_sensor['accomplished_computing_time'].notnull()
+            env.job_generator.packet_df_sensor['accomplished_time'].notnull()
         ]
 
         if accomplished_sensor_packets.empty:
@@ -128,12 +128,12 @@ class MComSmartCityHandler(Handler):
             return 0
 
         latest_sensor_packet = accomplished_sensor_packets.loc[
-            accomplished_sensor_packets['accomplished_computing_time'].idxmax()
+            accomplished_sensor_packets['accomplished_time'].idxmax()
         ]
 
         # Step 2: Calculate the delay
-        sensor_generating_time = latest_sensor_packet['generating_time']
-        ue_generating_time = ue_packet['generating_time']
+        sensor_generating_time = latest_sensor_packet['creation_time']
+        ue_generating_time = ue_packet['creation_time']
         delay = ue_generating_time - sensor_generating_time
 
         # Step 3: Calculate the reward using different discount factors for positive and negative delay
@@ -157,7 +157,7 @@ class MComSmartCityHandler(Handler):
 
         # Step 1: Find sensor packets that have a positive delay relative to the UE packet
         accomplished_sensor_packets = env.job_generator.packet_df_sensor[
-            env.job_generator.packet_df_sensor['accomplished_computing_time'].notnull()
+            env.job_generator.packet_df_sensor['accomplished_time'].notnull()
         ]
 
         if accomplished_sensor_packets.empty:
@@ -166,7 +166,7 @@ class MComSmartCityHandler(Handler):
 
         # Filter sensor packets to only include those with a generating time before the UE packet's generating time
         positive_delay_sensors = accomplished_sensor_packets[
-            accomplished_sensor_packets['generating_time'] <= ue_packet['generating_time']
+            accomplished_sensor_packets['creation_time'] <= ue_packet['creation_time']
         ]
 
         if positive_delay_sensors.empty:
@@ -175,12 +175,12 @@ class MComSmartCityHandler(Handler):
 
         # Step 2: Find the latest accomplished sensor packet among those with a positive delay
         latest_sensor_packet = positive_delay_sensors.loc[
-            positive_delay_sensors['accomplished_computing_time'].idxmax()
+            positive_delay_sensors['accomplished_time'].idxmax()
         ]
 
         # Step 3: Calculate the delay (since it's guaranteed to be positive or zero)
-        sensor_generating_time = latest_sensor_packet['generating_time']
-        ue_generating_time = ue_packet['generating_time']
+        sensor_generating_time = latest_sensor_packet['creation_time']
+        ue_generating_time = ue_packet['creation_time']
         delay = ue_generating_time - sensor_generating_time
 
         # Step 4: Calculate the reward using the positive discount factor

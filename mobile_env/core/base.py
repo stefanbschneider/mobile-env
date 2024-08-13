@@ -460,8 +460,8 @@ class MComCore(gymnasium.Env):
 
         # apply handler to transform actions to expected shape
         bandwidth_allocation, computational_allocation = self.handler.action(self, actions)
-        logging.info(f"Time step: {self.time} Communication allocation to UEs in percentage: {bandwidth_allocation * 100:.2f} %")
-        logging.info(f"Time step: {self.time} Computation allocation to UEs in percentage: {computational_allocation * 100:.2f} %")
+        logging.info(f"Time step: {self.time} Communication resource allocation to UEs in percentage: {bandwidth_allocation * 100:.2f} %")
+        logging.info(f"Time step: {self.time} Computation resource allocation to UEs in percentage: {computational_allocation * 100:.2f} %")
 
         # Store the resource allocations for each BS in the dictionary
         self.resource_allocations = {}
@@ -487,16 +487,18 @@ class MComCore(gymnasium.Env):
             bs_bandwidth = self.resource_allocations[bs]['bandwidth_for_sensors']
             drates_sensor = self.station_allocation_sensor(bs, bs_bandwidth)
             self.datarates_sensor.update(drates_sensor)
+        
         # update macro (aggregated) data rates for each UE
+        # TODO: check if this is necessary
         self.macro = self.macro_datarates(self.datarates)
 
         # Logging datarates
         self.logger.log_all_datarates()
 
         # Packet uplink transmission
-        logging.info(f"Time step: {self.time} Job transfer uplink starting...")
+        logging.info(f"Time step: {self.time} Job transfer starting...")
         self.data_transfer_manager.transfer_data_uplink()
-        logging.info(f"Time step: {self.time} Job transfer uplink over...")
+        logging.info(f"Time step: {self.time} Job transfer over...")
 
         # Log sensor and ue data queues
         self.logger.log_all_queues()
@@ -510,18 +512,21 @@ class MComCore(gymnasium.Env):
         self.logger.log_all_queues()
 
         # Log queue sizes
+        # TODO: check how to log the queue sizes in another way
         #self.log_queue_sizes()
 
         # Log the job data frame
-        self.job_generator.log_packets_ue()
-        self.job_generator.log_packets_sensor()
+        self.job_generator.log_df_ue()
+        self.job_generator.log_df_sensor()
 
         # compute utilities from UEs' data rates & log its mean value
+        # TODO: DO WE NEED THIS?
         self.utilities = {
             ue: self.utility.utility(self.macro[ue]) for ue in self.active
         }
 
         # scale utilities to range [-1, 1] before computing rewards
+        # TODO: DO WE NEED THIS?
         self.utilities = {
             ue: self.utility.scale(util) for ue, util in self.utilities.items()
         }
