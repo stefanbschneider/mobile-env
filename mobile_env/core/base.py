@@ -18,7 +18,7 @@ from mobile_env.core.channels import OkumuraHata
 from mobile_env.core.entities import BaseStation, UserEquipment, Sensor
 from mobile_env.core.monitoring import Monitor
 from mobile_env.core.movement import RandomWaypointMovement
-from mobile_env.core.schedules import ResourceFair, RateFair, ProportionalFair, RoundRobin
+from mobile_env.core.schedules import ResourceFair, RateFair, InverseWeightedRate, ProportionalFair, RoundRobin
 from mobile_env.core.util import BS_SYMBOL, SENSOR_SYMBOL, deep_dict_merge
 from mobile_env.core.utilities import BoundedLogUtility
 from mobile_env.core.buffers import JobQueue
@@ -116,10 +116,10 @@ class MComCore(gymnasium.Env):
         if not hasattr(self, 'queue_logs'):
             self.queue_logs = {
                 'time': [],
-                'bs_uplink_ue_queues': [],
-                'bs_downlink_ue_queues': [],
-                'bs_uplink_sensor_queues': [],
-                'bs_downlink_sensor_queues': [],
+                'bs_transferred_jobs_queue_ue': [],
+                'bs_accomplished_jobs_queue_ue': [],
+                'bs_transferred_jobs_queue_sensor': [],
+                'bs_accomplished_jobs_queue_sensor': [],
                 'ue_uplink_queues': [],
                 'sensor_uplink_queues': []
             }
@@ -158,7 +158,7 @@ class MComCore(gymnasium.Env):
             # used simulation models:
             "arrival": NoDeparture,
             "channel": OkumuraHata,
-            "scheduler": RoundRobin,
+            "scheduler": ResourceFair,
             "movement": RandomWaypointMovement,
             "utility": BoundedLogUtility,
             "handler": MComSmartCityHandler,
@@ -512,8 +512,9 @@ class MComCore(gymnasium.Env):
         self.logger.log_all_queues()
 
         # Log queue sizes
-        # TODO: check how to log the queue sizes in another way
-        #self.log_queue_sizes()
+        # TODO: should we log the number of jobs in the queue
+        # TODO: OR should we log the size of each job in the queue instead
+        self.log_queue_sizes()
 
         # Log the job data frame
         self.job_generator.log_df_ue()
@@ -758,8 +759,8 @@ class MComCore(gymnasium.Env):
 
         # calculate isoline contours for BSs' connectivity range (1 MB/s range)
         if self.conn_isolines is None:
-            self.conn_isolines = self.bs_isolines(1.0)
-        # calculate isoline contours for BSs' 50 MB/s range
+            self.conn_isolines = self.bs_isolines(100.0)
+        # calculate isoline contours for BSs' 10 MB/s range
         if self.mb_isolines is None:
             self.mb_isolines = self.bs_isolines(100.0)
 
@@ -1004,58 +1005,84 @@ class MComCore(gymnasium.Env):
         ax.set_xlim([0.0, self.EP_MAX_TIME])
         ax.set_ylim([0.0, len(self.users)])
 
-    def render_queues(self) -> None:
-        if not hasattr(self, 'queue_logs') or not self.queue_logs['time']:
-            return
-
-        fig, ax = plt.subplots()
-        times = self.queue_logs['time']
-        
-        # Plot sensor queues
-        for sensor_id in self.sensors.keys():
-            queue_sizes = [queues.get(sensor_id, 0) for queues in self.queue_logs['sensor_queues']]
-            ax.plot(times, queue_sizes, label=f"Sensor {sensor_id}")
-
-        # Plot user device queues
-        for ue_id in self.users.keys():
-            queue_sizes = [queues.get(ue_id, 0) for queues in self.queue_logs['ue_queues']]
-            ax.plot(times, queue_sizes, label=f"UE {ue_id}")
-
-        # Plot base station queues
-        for bs_id in self.stations.keys():
-            queue_sizes = [queues.get(bs_id, 0) for queues in self.queue_logs['bs_queues']]
-            ax.plot(times, queue_sizes, label=f"BS {bs_id}")
-
-        ax.set_title("Queue Sizes Over Time")
-        ax.set_xlabel("Time")
-        ax.set_ylabel("Queue Size")
-
-        # Move legend to the right side
-        ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-
-        plt.show()
-
     def log_queue_sizes(self):
         """Logs the current queue sizes of all entities."""
         self.queue_logs['time'].append(self.time)
 
-        bs_uplink_ue_sizes = [bs.transferred_jobs_ue.data_queue.qsize() for bs in self.stations.values()]
-        self.queue_logs['bs_uplink_ue_queues'].append(bs_uplink_ue_sizes)
+        bs_transferred_jobs_queue_ue_size = [bs.transferred_jobs_ue.data_queue.qsize() for bs in self.stations.values()]
+        self.queue_logs['bs_transferred_jobs_queue_ue'].append(bs_transferred_jobs_queue_ue_size)
 
-        bs_downlink_ue_sizes = [bs.accomplished_jobs_ue.data_queue.qsize() for bs in self.stations.values()]
-        self.queue_logs['bs_downlink_ue_queues'].append(bs_downlink_ue_sizes)
+        bs_accomplished_jobs_queue_ue_size = [bs.accomplished_jobs_ue.data_queue.qsize() for bs in self.stations.values()]
+        self.queue_logs['bs_accomplished_jobs_queue_ue'].append(bs_accomplished_jobs_queue_ue_size)
 
-        bs_uplink_sensor_sizes = [bs.transferred_jobs_sensor.data_queue.qsize() for bs in self.stations.values()]
-        self.queue_logs['bs_uplink_sensor_queues'].append(bs_uplink_sensor_sizes)
+        bs_transferred_jobs_queue_sensor_size = [bs.transferred_jobs_sensor.data_queue.qsize() for bs in self.stations.values()]
+        self.queue_logs['bs_transferred_jobs_queue_sensor'].append(bs_transferred_jobs_queue_sensor_size)
 
-        bs_downlink_sensor_sizes = [bs.accomplished_jobs_sensor.data_queue.qsize() for bs in self.stations.values()]
-        self.queue_logs['bs_downlink_sensor_queues'].append(bs_downlink_sensor_sizes)
+        bs_accomplished_job_queue_size = [bs.accomplished_jobs_sensor.data_queue.qsize() for bs in self.stations.values()]
+        self.queue_logs['bs_accomplished_jobs_queue_sensor'].append(bs_accomplished_job_queue_size)
 
-        ue_uplink_sizes = [ue.data_buffer_uplink.data_queue.qsize() for ue in self.users.values()]
-        self.queue_logs['ue_uplink_queues'].append(ue_uplink_sizes)
+        ue_uplink_queue_sizes = [ue.data_buffer_uplink.data_queue.qsize() for ue in self.users.values()]
+        self.queue_logs['ue_uplink_queues'].append(ue_uplink_queue_sizes)
 
-        sensor_uplink_sizes = [sensor.data_buffer_uplink.data_queue.qsize() for sensor in self.sensors.values()]
-        self.queue_logs['sensor_uplink_queues'].append(sensor_uplink_sizes)
+        sensor_uplink_queue_size = [sensor.data_buffer_uplink.data_queue.qsize() for sensor in self.sensors.values()]
+        self.queue_logs['sensor_uplink_queues'].append(sensor_uplink_queue_size)
+
+    def plot_queue_sizes(self):
+        """Plots the queue sizes over time."""
+        time_steps = self.queue_logs['time']
+
+        plt.figure(figsize=(14, 12))
+
+        # Plot for BS Transferred Jobs Queue for UEs
+        plt.subplot(3, 2, 1)
+        plt.plot(time_steps, self.queue_logs['bs_transferred_jobs_queue_ue'], label='BS Transferred Jobs Queue - UE')
+        plt.xlabel('Time Step')
+        plt.ylabel('Queue Size')
+        plt.title('BS Transferred Jobs Queue - UE')
+        plt.grid(True)
+
+        # Plot for BS Accomplished Jobs Queue for UEs
+        plt.subplot(3, 2, 2)
+        plt.plot(time_steps, self.queue_logs['bs_accomplished_jobs_queue_ue'], label='BS Accomplished Jobs Queue - UE')
+        plt.xlabel('Time Step')
+        plt.ylabel('Queue Size')
+        plt.title('BS Accomplished Jobs Queue - UE')
+        plt.grid(True)
+
+        # Plot for BS Transferred Jobs Queue for sensors
+        plt.subplot(3, 2, 3)
+        plt.plot(time_steps, self.queue_logs['bs_transferred_jobs_queue_sensor'], label='BS Transferred Jobs Queue - Sensor')
+        plt.xlabel('Time Step')
+        plt.ylabel('Queue Size')
+        plt.title('BS Transferred Jobs Queue - Sensor')
+        plt.grid(True)
+
+        # Plot for BS Accomplished Jobs Queue for sensors
+        plt.subplot(3, 2, 4)
+        plt.plot(time_steps, self.queue_logs['bs_accomplished_jobs_queue_sensor'], label='BS Accomplished Jobs Queue - Sensor')
+        plt.xlabel('Time Step')
+        plt.ylabel('Queue Size')
+        plt.title('BS Accomplished Jobs Queue - Sensor')
+        plt.grid(True)
+
+        # Plot for UE Uplink Queues
+        plt.subplot(3, 2, 5)
+        plt.plot(time_steps, self.queue_logs['ue_uplink_queues'], label='UE Uplink Queues')
+        plt.xlabel('Time Step')
+        plt.ylabel('Queue Size')
+        plt.title('UE Uplink Queue Sizes')
+        plt.grid(True)
+
+        # Plot for Sensor Uplink Queues
+        plt.subplot(3, 2, 6)
+        plt.plot(time_steps, self.queue_logs['sensor_uplink_queues'], label='Sensor Uplink Queues')
+        plt.xlabel('Time Step')
+        plt.ylabel('Queue Size')
+        plt.title('Sensor Uplink Queue Sizes')
+        plt.grid(True)
+
+        plt.tight_layout()
+        plt.show()
 
     def close(self) -> None:
         """Closes the environment and terminates its visualization."""

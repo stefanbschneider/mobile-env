@@ -79,10 +79,10 @@ class Channel:
         return 0.0
     
     @classmethod
-    def data_rate(cls, bs: BaseStation, device: Device, snr: float, bandwidth: float):
+    def data_rate(cls, bs: BaseStation, device: Device, snr: float, allocated_bandwidth: float):
         """Calculate max. data rate for transmission between BS and a device (UE or sensor) according to the bandwidth allocated."""
         if snr > device.snr_threshold:
-            return bandwidth * np.log2(1 + snr)
+            return allocated_bandwidth * np.log2(1 + snr)
 
         return 0.0
     

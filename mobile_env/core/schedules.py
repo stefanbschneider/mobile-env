@@ -13,7 +13,11 @@ class Scheduler:
         pass
 
     @abstractmethod
-    def share(self, bs: BaseStation, rates: List[float], total_resources: float) -> List[float]:
+    def share_ue(self, bs: BaseStation, rates: List[float], total_resources: float) -> List[float]:
+        pass
+
+    @abstractmethod
+    def share_sensor(self, bs: BaseStation, rates: List[float], total_resources: float) -> List[float]:
         pass
 
 
@@ -21,8 +25,26 @@ class ResourceFair(Scheduler):
     def share(self, bs: BaseStation, rates: List[float]) -> List[float]:
         return [rate / len(rates) for rate in rates]
 
+    def share_ue(self, bs: BaseStation, rates: List[float], total_resources: float) -> List[float]:
+        return self.share(bs, rates)
+
+    def share_sensor(self, bs: BaseStation, rates: List[float], total_resources: float) -> List[float]:
+        return self.share(bs, rates)
+    
 
 class RateFair(Scheduler):
+    def share(self, bs: BaseStation, rates: List[float]) -> List[float]:
+        total_inv_rate = sum([1 / rate for rate in rates])
+        return 1 / total_inv_rate
+    
+    def share_ue(self, bs: BaseStation, rates: List[float], total_resources: float) -> List[float]:
+        return self.share(bs, rates)
+
+    def share_sensor(self, bs: BaseStation, rates: List[float], total_resources: float) -> List[float]:
+        return self.share(bs, rates)
+    
+
+class InverseWeightedRate(Scheduler):
     def share(self, bs: BaseStation, rates: List[float]) -> List[float]:
         if all(rate == 0 for rate in rates):
             return [0.0] * len(rates)  # Avoid division by zero
@@ -30,6 +52,13 @@ class RateFair(Scheduler):
         total_inv_rate = sum(1.0 / rate if rate > 0 else 0 for rate in rates)
         return [(1.0 / rate if rate > 0 else 0) / total_inv_rate for rate in rates]
     
+    def share_ue(self, bs: BaseStation, rates: List[float], total_resources: float) -> List[float]:
+        return self.share(bs, rates)
+
+    def share_sensor(self, bs: BaseStation, rates: List[float], total_resources: float) -> List[float]:
+        return self.share(bs, rates)
+    
+
 class ProportionalFair(Scheduler):
     def __init__(self):
         self.average_rates = {}
@@ -51,6 +80,13 @@ class ProportionalFair(Scheduler):
 
         # Allocate resources proportionally
         return [(metric / total_pf_metric) * bs.total_resources for metric in pf_metric]
+    
+    def share_ue(self, bs: BaseStation, rates: List[float], ue_bandwidth: float) -> List[float]:
+        return self.share(bs, rates)
+
+    def share_sensor(self, bs: BaseStation, rates: List[float], sensor_bandwidth: float) -> List[float]:
+        return self.share(bs, rates)
+    
 
 class RoundRobin(Scheduler):
     def __init__(self, quantum: float = 1.0, **kwargs):
