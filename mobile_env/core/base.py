@@ -201,7 +201,28 @@ class MComCore(gymnasium.Env):
                 "velocity": 0,
                 "radius": 500,
                 "logs": {},
-            }          
+            },
+            # default ue job generation config
+            "ue_job": {
+                "job_generation_probability": 0.5,
+                "communication_job_lambda_value": 15.0,
+                "computation_job_lambda_value": 50.0,
+            },
+            # default sensor job generation config
+            "sensor_job": {
+                "communication_job_lambda_value": 2.0,
+                "computation_job_lambda_value": 10.0,
+            },
+            # default delay threshold for packets
+            "e2e_delay_threshold": 5,
+            "reward_calculation": {
+                "ue_penalty": -3,
+                "sensor_penalty": -5,
+                "discount_factor": 0.9,
+                "base_reward": 10,
+                "positive_discount_factor": 0.9,      # Discount factor for positive delay
+                "negative_discount_factor": 0.8,      # Discount factor for negative delay
+            }
         }
 
         # set up default configuration parameters for arrival pattern, ...

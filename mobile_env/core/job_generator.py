@@ -12,6 +12,7 @@ class JobGenerator:
         self.env = env
         self.job_counter: int = 0
         self.logger = env.logger
+        self.config = env.default_config()
         self.packet_df_ue = pd.DataFrame(columns=[
             'packet_id', 'device_type', 'device_id', 'is_accomplished', 'creation_time',
             'arrival_time', 'accomplished_time', 'e2e_delay_threshold'
@@ -27,12 +28,12 @@ class JobGenerator:
         return self.job_counter
 
     @staticmethod
-    def _generate_communication_request(device_type: str) -> float:
+    def _generate_communication_request(self, device_type: str) -> float:
         # Generate data size for communication request based on device type
         if device_type == 'sensor':
-            poisson_lambda = 2.0        # Mean size for sensors in MB
+            poisson_lambda = self.config["sensor_job"]["communication_job_lambda_value"]
         elif device_type == 'user_device':
-            poisson_lambda = 15.0       # Mean size for user devices in MB
+            poisson_lambda = self.config["ue_job"]["communication_job_lambda_value"]  
         else:
             raise ValueError("Unknown device category. Expected 'sensor' or 'user_device'.")
 
@@ -43,12 +44,12 @@ class JobGenerator:
         return max(request_size, 1.0)     # Return at least 1 MB if generated size is 0
     
     @staticmethod
-    def _generate_computation_request(device_type: str) -> int:
+    def _generate_computation_request(self, device_type: str) -> int:
         # Generate the computational requirement for a device based on its category.
         if device_type == 'sensor':
-            poisson_lambda = 10.0    # Computational requirement in FLOPS for sensors
+            poisson_lambda = self.config["sensor_job"]["computation_job_lambda_value"]
         elif device_type == 'user_device':
-            poisson_lambda = 50.0    # Computational requirement in FLOPS for user devices
+            poisson_lambda = self.config["ue_job"]["computation_job_lambda_value"]
         else:
             raise ValueError("Unknown device category. Expected 'sensor' or 'user_device'.")
         
@@ -60,8 +61,8 @@ class JobGenerator:
     def _generate_job(self, time: float, device_id: int, device_type: str) -> Job:
         # Generate jobs for devices
         job_index = self._generate_index()
-        communication_request_size = self._generate_communication_request(device_type)
-        computation_request = self._generate_computation_request(device_type)
+        communication_request_size = self._generate_communication_request(self, device_type)
+        computation_request = self._generate_computation_request(self, device_type)
 
         # Create a new job record
         job = {
@@ -88,7 +89,7 @@ class JobGenerator:
             'creation_time': time,
             'arrival_time': None,
             'accomplished_time': None,
-            'e2e_delay_threshold': 5
+            'e2e_delay_threshold': self.config["e2e_delay_threshold"]
         }
 
         # Convert job to data frame and concatenate with existing data frame
@@ -104,7 +105,7 @@ class JobGenerator:
     
     def generate_job_ue(self, ue: UserEquipment) -> None:
         """Generate jobs for user equipments for device updates."""
-        if random.random() < 0.5:
+        if random.random() < self.config["ue_job"]["job_generation_probability"]:
             job = self._generate_job(self.env.time, ue.ue_id, "user_device")
             if ue.data_buffer_uplink.enqueue_job(job):
                 self.logger.log_simulation(
