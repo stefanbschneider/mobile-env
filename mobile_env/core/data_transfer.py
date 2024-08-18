@@ -1,4 +1,3 @@
-import logging
 from typing import Dict, Union, List, Tuple
 from mobile_env.core.entities import BaseStation, UserEquipment, Sensor
 from mobile_env.core.buffers import JobQueue
@@ -8,6 +7,7 @@ Device = Union[UserEquipment, Sensor]
 class DataTransferManager:
     def __init__(self, env):
         self.env = env
+        self.logger = env.logger
         self.job_generator = env.job_generator
 
     def transfer_data_uplink(self) -> None:
@@ -30,7 +30,7 @@ class DataTransferManager:
         src_buffer, dst_buffer = self._get_buffers(src, dst)
 
         if data_transfer_rate <= 0:
-            logging.warning(
+            self.logger.log_simulation(
                 f"Time step: {self.env.time} No data rate for uplink connection from {src} to {dst} "
                 f"for device {Device} and bs {BaseStation}. Packet transmission aborted."
             )
@@ -47,7 +47,7 @@ class DataTransferManager:
 
             data_transfer_rate -= bits_to_send
 
-            logging.info(
+            self.logger.log_simulation(
                 f"Time step: {self.env.time} from {src} to {dst}, job index: {job['packet_id']}, "
                 f"Bits sent: {bits_to_send}, Remaining size: {job['remaining_request_size']}"
             )
@@ -64,13 +64,13 @@ class DataTransferManager:
                 elif job['device_type'] == 'sensor':
                     self.job_generator.packet_df_sensor.loc[self.job_generator.packet_df_sensor['packet_id'] == job['packet_id'], 'arrival_time'] = self.env.time
                 else:
-                    logging.warning(f"Unknown device type {job['device_type']}. Arrival time not updated.")
+                    self.logger.log_simulation(f"Unknown device type {job['device_type']}. Arrival time not updated.")
 
-                logging.info(
+                self.logger.log_simulation(
                     f"Time step: {self.env.time} Job {job['packet_id']} transferred from {src} to {dst} with serving time {job['serving_time_total']}."
                 )
             else:
-                logging.info(
+                self.logger.log_simulation(
                     f"Time step: {self.env.time} Job {job['packet_id']} partially transferred from {src} to {dst}."
                 )
                 break
@@ -91,14 +91,14 @@ class DataTransferManager:
 
     def _process_data_for_bs(self, bs: BaseStation, ue_computational_power: float, sensor_computational_power: float) -> None:
         self._process_data(bs.transferred_jobs_ue, bs.accomplished_jobs_ue, ue_computational_power)
-        logging.warn(f"Time step: {self.env.time} UE jobs are processed.")
+        self.logger.log_simulation(f"Time step: {self.env.time} UE jobs are processed.")
         self._process_data(bs.transferred_jobs_sensor, bs.accomplished_jobs_sensor, sensor_computational_power)
-        logging.warn(f"Time step: {self.env.time} Sensor jobs are processed.")
+        self.logger.log_simulation(f"Time step: {self.env.time} Sensor jobs are processed.")
 
     def _process_data(self, transferred_jobs_queue: JobQueue, accomplished_jobs_queue: JobQueue, computational_power: float) -> None:
         # Process jobs based on the computational power available at the base station.
         if computational_power <= 0:
-            logging.warning(f"No computational power available at the MEC server of the base station.")
+            self.logger.log_simulation(f"No computational power available at the MEC server of the base station.")
             return
 
         while not transferred_jobs_queue.data_queue.empty() and computational_power > 0:
@@ -124,17 +124,17 @@ class DataTransferManager:
                         ['is_accomplished', 'accomplished_time']
                     ] = [True, self.env.time]
                 else:
-                    logging.warning(f"Unknown device type {job['device_type']}. Computing time not updated.")
+                    self.logger.log_simulation(f"Unknown device type {job['device_type']}. Computing time not updated.")
 
-                logging.info(
+                self.logger.log_simulation(
                     f"Time step: {self.env.time} Processed job {job['packet_id']} with computational requirement {job['computation_request']}."
                 )
 
                 if computational_power < 0:
-                    logging.warning("MEC server computational power exhausted. Some jobs may be delayed.")
+                    self.logger.log_simulation("MEC server computational power exhausted. Some jobs may be delayed.")
                     break  # Exit the loop if computational power is exhausted
             else:
-                logging.warning(f"Job {job['packet_id']} requires more computational power than available. Skipping job.")
+                self.logger.log_simulation(f"Job {job['packet_id']} requires more computational power than available. Skipping job.")
                 break
 
     def _update_job(self, job: Dict[str, Union[int, float]], bits_to_send: float) -> None:

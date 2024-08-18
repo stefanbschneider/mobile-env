@@ -1,5 +1,4 @@
 from queue import Queue
-import logging
 from typing import Dict, Optional, Union
 
 # Type alias for the job data
@@ -15,10 +14,8 @@ class JobQueue:
         # Add a job to the queue if there is enough space
         if not self.data_queue.full():
             self.data_queue.put(job)
-            logging.info(f"Job index {job['packet_id']} added to the buffer.")
             return True
         else:
-            logging.warning("Buffer is full, job dropped!")
             return False
 
     def dequeue_job(self) -> Optional[Job]:
@@ -27,7 +24,6 @@ class JobQueue:
             job = self.data_queue.get()
             return job
         else:
-            logging.warning("Buffer is empty!")
             return None
 
     def peek_job(self) -> Optional[Job]:

@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 import random
-import logging
 from typing import Dict, Optional, Union
 from mobile_env.core.entities import UserEquipment, Sensor
 
@@ -12,6 +11,7 @@ class JobGenerator:
     def __init__(self, env) -> None:
         self.env = env
         self.job_counter: int = 0
+        self.logger = env.logger
         self.packet_df_ue = pd.DataFrame(columns=[
             'packet_id', 'device_type', 'device_id', 'is_accomplished', 'creation_time',
             'arrival_time', 'accomplished_time', 'e2e_delay_threshold'
@@ -88,7 +88,7 @@ class JobGenerator:
             'creation_time': time,
             'arrival_time': None,
             'accomplished_time': None,
-            'e2e_delay_threshold': 10
+            'e2e_delay_threshold': 5
         }
 
         # Convert job to data frame and concatenate with existing data frame
@@ -107,7 +107,7 @@ class JobGenerator:
         if random.random() < 0.5:
             job = self._generate_job(self.env.time, ue.ue_id, "user_device")
             if ue.data_buffer_uplink.enqueue_job(job):
-                logging.info(
+                self.logger.log_simulation(
                     f"Time step: {self.env.time} Job generated: {job['packet_id']} by {job['device_type']} {job['device_id']} " 
                     f"with initial size of {job['initial_request_size']} MB and computational request of {job['computation_request']} FLOPS"
                 )
@@ -116,15 +116,15 @@ class JobGenerator:
         """Generate jobs for sensors for environmental updates."""
         job = self._generate_job(self.env.time, sensor.sensor_id, "sensor")
         if sensor.data_buffer_uplink.enqueue_job(job):
-            logging.info(
+            self.logger.log_simulation(
                 f"Time step: {self.env.time} Job generated: {job['packet_id']} by {job['device_type']} {job['device_id']} "
                 f"with initial size of {job['initial_request_size']} MB and computational request of {job['computation_request']} FLOPS"
             )
 
     def log_df_ue(self) -> None:
         """Log the data frame of UEs at the current time step."""
-        logging.info(f"{self.packet_df_ue}")
+        self.logger.log_reward(f"{self.packet_df_ue}")
     
     def log_df_sensor(self) -> None:
         """Log the data frame of sensors at the current time step."""
-        logging.info(f"{self.packet_df_sensor}")
+        self.logger.log_reward(f"{self.packet_df_sensor}")
