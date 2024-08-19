@@ -14,7 +14,6 @@ class MComSmartCityHandler(Handler):
     def __init__(self, env):
         self.env = env
         self.logger = env.logger  
-        self.config = env.default_config()
 
     @classmethod
     def ue_obs_size(cls, env) -> int:
@@ -67,7 +66,7 @@ class MComSmartCityHandler(Handler):
 
             if dt > row['e2e_delay_threshold']:
                 # Packet failed due to exceeding the delay constraint
-                total_reward += env.config["reward_calculation"]["ue_penalty"]
+                total_reward += env.default_config()["reward_calculation"]["ue_penalty"]
                 env.logger.log_reward(f"Time step: {env.time} Packet {row['packet_id']} from UE {row['device_id']} failed due to delay. Penalty applied.")
                 # Mark as accomplished with failure and remove from data frame
                 indices_to_remove_ue_jobs.append(index)
@@ -83,7 +82,7 @@ class MComSmartCityHandler(Handler):
 
             if dt > row['e2e_delay_threshold']:
                 # Packet failed due to exceeding the delay constraint
-                total_reward += env.config["reward_calculation"]["sensor_penalty"]
+                total_reward += env.default_config()["reward_calculation"]["sensor_penalty"]
                 env.logger.log_reward(f"Time step: {env.time} Packet {row['packet_id']} from Sensor {row['device_id']} failed due to delay. Penalty applied.")
                 # Mark as accomplished with failure and remove from data frame
                 indices_to_remove_sensor_jobs.append(index)
@@ -130,7 +129,7 @@ class MComSmartCityHandler(Handler):
         delay = abs(ue_generating_time - sensor_generating_time)
 
         # Step 3: Calculate the reward using the delay
-        reward = env.config["reward_calculation"]["base_reward"] * (env.config["reward_calculation"]["discount_factor"] ** delay)
+        reward = env.default_config()["reward_calculation"]["base_reward"] * (env.default_config()["reward_calculation"]["discount_factor"] ** delay)
 
         env.logger.log_reward(f"Time step: {env.time} Reward computed {reward} with delay: {delay}")
 
