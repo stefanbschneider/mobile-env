@@ -22,9 +22,9 @@ class MComSmartCity(MComCore):
         ues = self.create_user_equipments(num_ues, config["ue"])
 
         # Initialize sensors
-        num_sensors = 5
-        max_distance = 100               # Maximum distance from any base station
-        min_distance = 30               # Minimum distance between sensors and between sensors and base stations
+        num_sensors = 10
+        max_distance = 90               # Maximum distance from any base station
+        min_distance = 20                # Minimum distance between sensors and between sensors and base stations
         sensor_positions = self.place_sensors(num_sensors, station_positions, max_distance, min_distance)
 
         sensors = self.create_sensors(num_sensors, sensor_positions, config["sensor"])

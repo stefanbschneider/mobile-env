@@ -95,7 +95,7 @@ class MComCore(gymnasium.Env):
         # stores datarate of downlink connections between UEs and BSs
         self.datarates_sensor: Dict[Tuple[BaseStation, Sensor], float] = None
         # store resource allocations for each base station
-        self.resource_allocations = None
+        self.resource_allocations: Dict[BaseStation, Dict[str, float]] = None
         # stores each UE's (scaled) utility
         self.utilities: Dict[UserEquipment, float] = None
         # stores each Sensor's (scaled) utility
@@ -169,7 +169,7 @@ class MComCore(gymnasium.Env):
             "width": width,
             "height": height,
             "EP_MAX_TIME": ep_time,
-            "seed": 10,
+            "seed": 666,
             "reset_rng_episode": False,
             # used simulation models:
             "arrival": NoDeparture,
@@ -180,11 +180,11 @@ class MComCore(gymnasium.Env):
             "handler": MComSmartCityHandler,
             # default cell config
             "bs": {
-                "bw": 20e6, 
+                "bw": 20e7, 
                 "freq": 2500, 
                 "tx": 40, 
                 "height": 50, 
-                "computational_power": 200,
+                "computational_power": 100,
             },
             # default UE config
             "ue": {
@@ -204,20 +204,20 @@ class MComCore(gymnasium.Env):
             },
             # default ue job generation config
             "ue_job": {
-                "job_generation_probability": 0.5,
-                "communication_job_lambda_value": 15.0,
-                "computation_job_lambda_value": 50.0,
+                "job_generation_probability": 0.8,
+                "communication_job_lambda_value": 10.0,
+                "computation_job_lambda_value": 10.0,
             },
             # default sensor job generation config
             "sensor_job": {
-                "communication_job_lambda_value": 2.0,
-                "computation_job_lambda_value": 10.0,
+                "communication_job_lambda_value": 15.0,
+                "computation_job_lambda_value": 15.0,
             },
             # default delay threshold for packets
-            "e2e_delay_threshold": 5,
+            "e2e_delay_threshold": 4,
             "reward_calculation": {
                 "ue_penalty": -3,
-                "sensor_penalty": -5,
+                "sensor_penalty": -1,
                 "discount_factor": 0.9,
                 "base_reward": 10,
                 "positive_discount_factor": 0.9,      # Discount factor for positive delay
@@ -321,6 +321,8 @@ class MComCore(gymnasium.Env):
         self.datarates = defaultdict(float)
         # reset connections' data rates (defaults set to 0.0)
         self.datarates_sensor = defaultdict(float)
+        # reset resource allocations
+        self.resource_allocations = defaultdict(float)
         # reset UEs' utilities
         self.utilities = {}
         # reset sensors utilities
@@ -497,6 +499,7 @@ class MComCore(gymnasium.Env):
 
         # apply handler to transform actions to expected shape
         bandwidth_allocation, computational_allocation = self.handler.action(self, actions)
+        self.logger.log_simulation(f"Time step: {self.time} Action applied...")
         self.logger.log_simulation(
             f"Time step: {self.time} Communication resource allocation to UEs in percentage: {bandwidth_allocation * 100:.2f} %"
             )
@@ -507,7 +510,8 @@ class MComCore(gymnasium.Env):
         # Store the resource allocations for each BS in the dictionary
         self.resource_allocations = {}
         for bs in self.stations.values():
-            bandwidth_for_ues, bandwidth_for_sensors, computational_power_for_ues, computational_power_for_sensors = self.apply_action(bs, bandwidth_allocation, computational_allocation)
+            bandwidth_for_ues, bandwidth_for_sensors, computational_power_for_ues, \
+            computational_power_for_sensors = self.apply_action(bs, bandwidth_allocation, computational_allocation)
 
             self.resource_allocations[bs] = {
                 'bandwidth_for_ues': bandwidth_for_ues,
@@ -1115,25 +1119,33 @@ class MComCore(gymnasium.Env):
         self.dropped_packet_logs['dropped_sensor_packets'].append(dropped_sensor_jobs)
 
     def plot_resource_allocations(self):
-        """ Plot the resource allocations over time for each base station"""
+        """Plot the resource allocations over time for each base station, each on a separate plot."""
         time_steps = self.resource_allocation_logs['time']
 
-        plt.figure(figsize=(12, 8))
-
-        plt.plot(time_steps, self.resource_allocation_logs['bandwidth_for_ues'], color='blue', label='Bandwidth for UEs')
-        plt.plot(time_steps, self.resource_allocation_logs['bandwidth_for_sensors'], color='green', label='Bandwidth for Sensors')
-        plt.plot(time_steps, self.resource_allocation_logs['computational_power_for_ues'], color='red', label='Computational Power for UEs')
-        plt.plot(time_steps, self.resource_allocation_logs['computational_power_for_sensors'], color='purple', label='Computational Power for Sensors')
+        # Define the resource categories and their respective colors
+        resource_categories = {
+            'Bandwidth for UEs': 'blue',
+            'Bandwidth for Sensors': 'green',
+            'Computational Power for UEs': 'red',
+            'Computational Power for Sensors': 'purple'
+        }
         
-        # Add titles and labels
-        plt.title(f'Resource Allocations for Base Station')
-        plt.xlabel('Time')
-        plt.ylabel('Resource Allocation in percentage')
-        plt.legend()
-        plt.grid(True)
-        
-        # Show the plot
-        plt.show()
+        # Create a new figure for each resource category
+        for resource, color in resource_categories.items():
+            plt.figure(figsize=(12, 6))
+            
+            # Plot the data for the current resource category
+            plt.plot(time_steps, self.resource_allocation_logs[resource.lower().replace(' ', '_')], color=color, label=resource)
+            
+            # Add titles and labels
+            plt.title(f'{resource} Over Time')
+            plt.xlabel('Time')
+            plt.ylabel('Resource Allocation in Percentage')
+            plt.legend()
+            plt.grid(True)
+            
+            # Show the plot
+            plt.show()
 
     def plot_queue_sizes(self):
         """Plots the queue sizes over time."""

@@ -34,12 +34,12 @@ class Logger:
     def log_datarates(self) -> None:
         """Logs data transfer rates of each connected ue-bs pair."""
         for (bs, ue), rate in sorted(self.env.datarates.items(), key=lambda x: x[0][1].ue_id):
-            self.log_simulation(f"Time step: {self.env.time} Data transfer rate for {ue} connected to {bs} is : {rate} MB")
+            self.log_simulation(f"Time step: {self.env.time} Data transfer rate for {ue} connected to {bs} is : {rate} Mbps")
 
     def log_datarates_sensor(self) -> None:
         """Logs data transfer rates of each connected sensor-bs pair."""
         for (bs, sensor), rate in sorted(self.env.datarates_sensor.items(), key=lambda x: x[0][1].sensor_id):
-            self.log_simulation(f"Time step: {self.env.time} Data transfer rate for {sensor} connected to {bs} is : {rate} MB")
+            self.log_simulation(f"Time step: {self.env.time} Data transfer rate for {sensor} connected to {bs} is : {rate} Mbps")
 
     def log_device_uplink_queue(self) -> None:
         """Logs the job indexes, initial sizes, and remaining sizes for every job in the uplink buffer of UEs."""

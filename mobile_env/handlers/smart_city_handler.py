@@ -56,6 +56,8 @@ class MComSmartCityHandler(Handler):
     def reward(cls, env) -> float:
         """Process UE packets: apply penalties, rewards, and update the data frame."""
         total_reward = 0
+        ue_penalty = env.default_config()["reward_calculation"]["ue_penalty"]
+        sensor_penalty = env.default_config()["reward_calculation"]["sensor_penalty"]
 
         # List of packets that exceeded the delay constraint or were accomplished
         indices_to_remove_ue_jobs = []
@@ -66,7 +68,7 @@ class MComSmartCityHandler(Handler):
 
             if dt > row['e2e_delay_threshold']:
                 # Packet failed due to exceeding the delay constraint
-                total_reward += env.default_config()["reward_calculation"]["ue_penalty"]
+                total_reward += ue_penalty
                 env.logger.log_reward(f"Time step: {env.time} Packet {row['packet_id']} from UE {row['device_id']} failed due to delay. Penalty applied.")
                 # Mark as accomplished with failure and remove from data frame
                 indices_to_remove_ue_jobs.append(index)
@@ -82,7 +84,7 @@ class MComSmartCityHandler(Handler):
 
             if dt > row['e2e_delay_threshold']:
                 # Packet failed due to exceeding the delay constraint
-                total_reward += env.default_config()["reward_calculation"]["sensor_penalty"]
+                total_reward += sensor_penalty
                 env.logger.log_reward(f"Time step: {env.time} Packet {row['packet_id']} from Sensor {row['device_id']} failed due to delay. Penalty applied.")
                 # Mark as accomplished with failure and remove from data frame
                 indices_to_remove_sensor_jobs.append(index)
