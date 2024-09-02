@@ -110,7 +110,7 @@ class JobGenerator:
             if ue.data_buffer_uplink.enqueue_job(job):
                 self.logger.log_simulation(
                     f"Time step: {self.env.time} Job generated: {job['packet_id']} by {job['device_type']} {job['device_id']} " 
-                    f"with initial size of {job['initial_request_size']} MB and computational request of {job['computation_request']} FLOPS"
+                    f"with initial size of {job['initial_request_size']} MB and computational request of {job['computation_request']} units"
                 )
 
     def generate_job_sensor(self, sensor: Sensor) -> None:
@@ -119,7 +119,7 @@ class JobGenerator:
         if sensor.data_buffer_uplink.enqueue_job(job):
             self.logger.log_simulation(
                 f"Time step: {self.env.time} Job generated: {job['packet_id']} by {job['device_type']} {job['device_id']} "
-                f"with initial size of {job['initial_request_size']} MB and computational request of {job['computation_request']} FLOPS"
+                f"with initial size of {job['initial_request_size']} MB and computational request of {job['computation_request']} units"
             )
 
     def log_df_ue(self) -> None:

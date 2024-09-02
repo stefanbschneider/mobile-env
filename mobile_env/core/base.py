@@ -180,7 +180,7 @@ class MComCore(gymnasium.Env):
             "handler": MComSmartCityHandler,
             # default cell config
             "bs": {
-                "bw": 20e7, 
+                "bw": 100e6, 
                 "freq": 2500, 
                 "tx": 40, 
                 "height": 50, 
@@ -204,17 +204,17 @@ class MComCore(gymnasium.Env):
             },
             # default ue job generation config
             "ue_job": {
-                "job_generation_probability": 0.8,
-                "communication_job_lambda_value": 10.0,
+                "job_generation_probability": 0.7,
+                "communication_job_lambda_value": 2.875,     # in MB
                 "computation_job_lambda_value": 10.0,
             },
             # default sensor job generation config
             "sensor_job": {
-                "communication_job_lambda_value": 15.0,
-                "computation_job_lambda_value": 15.0,
+                "communication_job_lambda_value": 1.125,    # in MB
+                "computation_job_lambda_value": 5.0,       # in units
             },
             # default delay threshold for packets
-            "e2e_delay_threshold": 4,
+            "e2e_delay_threshold": 5,
             "reward_calculation": {
                 "ue_penalty": -3,
                 "sensor_penalty": -1,
@@ -364,7 +364,7 @@ class MComCore(gymnasium.Env):
         sensor_computational_power = bs.computational_power * (1 - computational_allocation)
 
         self.logger.log_simulation(f"Time step: {self.time} Bandwidth allocated to UEs: {ue_bandwidth} Hz, to Sensors: {sensor_bandwidth} Hz")
-        self.logger.log_simulation(f"Time step: {self.time} Computational power allocated to UEs: {ue_computational_power} FLOPS, to Sensors: {sensor_computational_power} FLOPS")
+        self.logger.log_simulation(f"Time step: {self.time} Computational power allocated to UEs: {ue_computational_power} units, to Sensors: {sensor_computational_power} units")
 
         return ue_bandwidth, sensor_bandwidth, ue_computational_power, sensor_computational_power
 

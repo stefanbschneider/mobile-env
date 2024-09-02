@@ -21,7 +21,7 @@ class BaseStation:
         self.frequency = freq  # in MHz
         self.tx_power = tx  # in dBm
         self.height = height  # in m
-        self.computational_power = computational_power  # in FLOPS
+        self.computational_power = computational_power  # units
         self.transferred_jobs_ue = JobQueue(size=1000)
         self.transferred_jobs_sensor = JobQueue(size=1000)
         self.accomplished_jobs_ue = JobQueue(size=1000)
