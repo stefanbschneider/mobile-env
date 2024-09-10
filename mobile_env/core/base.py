@@ -428,7 +428,7 @@ class MComCore(gymnasium.Env):
             closest_bs: Optional[BaseStation] = None     # Initialize the closest base station to None
             min_distance = float('inf')                  # Initialize the minimum distance to infinity
             
-            #  Iterate through all base stations to find the closest one
+            # Iterate through all base stations to find the closest one
             for bs in self.stations.values():
                 # Calculate the Euclidean distance between the sensor and the base station
                 distance = np.sqrt((sensor.x - bs.x) ** 2 + (sensor.y - bs.y) ** 2)
