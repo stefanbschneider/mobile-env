@@ -66,15 +66,14 @@ class MComCore(gymnasium.Env):
         self.NUM_SENSORS = len(self.sensors)
 
         # define sizes of base feature set that can or cannot be observed
-        #TODO: Change the observations and feature_sizes
         self.feature_sizes = {
-            "connections": self.NUM_STATIONS,
-            "snrs": self.NUM_STATIONS,
-            "utility": 1,
-            "bcast": self.NUM_STATIONS,
-            "stations_connected": self.NUM_STATIONS,
-            "sensors": self.NUM_SENSORS,
+            "queue_lengths": 4,                     # 4 queue lengths
+            "resource_utilization": 2,              # BW and CPU utilization
+            "request_frequency": 2,
         }
+
+       # Instantiate the Logger class
+        self.logger = Logger(self)
 
         # set object that handles calls to action(), reward() & observation()
         # set action & observation space according to handler
@@ -103,8 +102,7 @@ class MComCore(gymnasium.Env):
         # define RNG (as of now: unused)
         self.rng = None
 
-       # Instantiate the Logger class
-        self.logger = Logger(self)
+
 
         # Instantiate JobGenerator and DataTransferManager
         self.job_generator = JobGenerator(self)
@@ -123,11 +121,11 @@ class MComCore(gymnasium.Env):
             }
 
         # Initialize or update dropped packet logs
-        if not hasattr(self, 'dropped_packet_logs'):
-            self.dropped_packet_logs = {
+        if not hasattr(self, 'delayed_packet_logs'):
+            self.delayed_packet_logs = {
                 'time': [],
-                'dropped_ue_packets': [],
-                'dropped_sensor_packets': [],
+                'delayed_ue_packets': [],
+                'delayed_sensor_packets': [],
             }
 
         # Initialize or update resource allocation logs
@@ -217,7 +215,6 @@ class MComCore(gymnasium.Env):
             "e2e_delay_threshold": 5,
             "reward_calculation": {
                 "ue_penalty": -3,
-                "sensor_penalty": -1,
                 "discount_factor": 0.9,
                 "base_reward": 10,
                 "positive_discount_factor": 0.9,      # Discount factor for positive delay
@@ -327,6 +324,24 @@ class MComCore(gymnasium.Env):
         self.utilities = {}
         # reset sensors utilities
         self.utilities_sensor = {}
+
+        self.queue_size_logs = {
+            'time': [],
+            'bs_transferred_jobs_queue_ue': [0],
+            'bs_accomplished_jobs_queue_ue': [0],
+            'bs_transferred_jobs_queue_sensor': [0],
+            'bs_accomplished_jobs_queue_sensor': [0],
+            'ue_uplink_queues': [0],
+            'sensor_uplink_queues': [0]
+        }
+
+        self.resource_allocation_logs = {
+            'time': [],
+            'bandwidth_for_ues': [0],
+            'bandwidth_for_sensors': [0],
+            'computational_power_for_ues': [0],
+            'computational_power_for_sensors': [0],
+        }
 
         # set time of last UE's departure
         self.max_departure = max(ue.extime for ue in self.users.values())
@@ -499,13 +514,10 @@ class MComCore(gymnasium.Env):
 
         # apply handler to transform actions to expected shape
         bandwidth_allocation, computational_allocation = self.handler.action(self, actions)
+
         self.logger.log_simulation(f"Time step: {self.time} Action applied...")
-        self.logger.log_simulation(
-            f"Time step: {self.time} Communication resource allocation to UEs in percentage: {bandwidth_allocation * 100:.2f} %"
-            )
-        self.logger.log_simulation(
-            f"Time step: {self.time} Computation resource allocation to UEs in percentage: {computational_allocation * 100:.2f} %"
-            )
+        self.logger.log_simulation(f"Time step: {self.time} Communication resource allocation to UEs in percentage: {bandwidth_allocation * 100:.2f} %")
+        self.logger.log_simulation(f"Time step: {self.time} Computation resource allocation to UEs in percentage: {computational_allocation * 100:.2f} %")
 
         # Store the resource allocations for each BS in the dictionary
         self.resource_allocations = {}
@@ -565,14 +577,10 @@ class MComCore(gymnasium.Env):
         self.log_queue_sizes()
 
         # log the job data frame
+        self.logger.log_reward(f"Time step: {self.time} Data frames UE:")
         self.job_generator.log_df_ue()
+        self.logger.log_reward(f"Time step: {self.time} Data frames Sensor:")
         self.job_generator.log_df_sensor()
-
-        # check all the e2e delay threshold for all jobs
-        dropped_ue_jobs, dropped_sensor_jobs = self.check_packet_delays()
-
-        # log the number of dropped jobs
-        self.log_dropped_packets(dropped_ue_jobs, dropped_sensor_jobs)
 
         # compute utilities from UEs' data rates & log its mean value
         # TODO: DO WE NEED THIS?
@@ -588,6 +596,12 @@ class MComCore(gymnasium.Env):
 
         # compute rewards
         rewards = self.handler.reward(self)
+
+        # check all the e2e delay threshold for all jobs
+        delayed_ue_jobs, delayed_sensor_jobs = self.check_packet_delays()
+
+        # log the number of dropped jobs
+        self.log_delayed_packets(delayed_ue_jobs, delayed_sensor_jobs)
 
         # evaluate metrics and update tracked metrics given the core simulation
         #TODO: check what does this monitor class do
@@ -688,24 +702,33 @@ class MComCore(gymnasium.Env):
     
     def check_packet_delays(self) -> Tuple[int, int]:
         """Check packets for E2E delay and update dropped packet counts."""
-        dropped_ue_jobs: int = 0
-        dropped_sensor_jobs: int = 0
+        delayed_ue_jobs: int = 0
+        delayed_sensor_jobs: int = 0
 
         # Check if there are any e2e delay threshold exceeding UE jobs
         for _, row in self.job_generator.packet_df_ue.iterrows():
-            delay = self.time - row['creation_time']
-            if delay > row['e2e_delay_threshold']:
-                dropped_ue_jobs += 1
-                self.logger.log_simulation(f"Time step: {self.time} UE Packet {row['packet_id']} is exceeding E2E delay threshold.")
+            # Check if packet is accomplished at this time step
+            if row['is_accomplished'] and row['accomplished_time'] == self.time:
+                # Packet is accomplished in this time step
+                dt = self.time - row['creation_time']
+
+                if dt > row['e2e_delay_threshold']:
+                    delayed_ue_jobs += 1
 
         # Check if there are any e2e delay threshold exceeding Sensor jobs
         for _, row in self.job_generator.packet_df_sensor.iterrows():
-            delay = self.time - row['creation_time']
-            if delay > row['e2e_delay_threshold']:
-                dropped_sensor_jobs += 1
-                self.logger.log_simulation(f"Time step: {self.time} Sensor Packet {row['packet_id']} is exceeding E2E delay threshold.")
+            # Check if packet is accomplished at this time step
+            if row['is_accomplished'] and row['accomplished_time'] == self.time:
+                # Packet is accomplished in this time step
+                dt = self.time - row['creation_time']
 
-        return dropped_ue_jobs, dropped_sensor_jobs
+                if dt > row['e2e_delay_threshold']:
+                    delayed_sensor_jobs += 1
+                
+        self.logger.log_simulation(f"Time step: {self.time} Number of delayed accomplished UE packets {delayed_ue_jobs}")
+        self.logger.log_simulation(f"Time step: {self.time} Number of delayed accomplished sensor packets {delayed_sensor_jobs}")
+
+        return delayed_ue_jobs, delayed_sensor_jobs
     
     def station_utilities(self) -> Dict[BaseStation, UserEquipment]:
         """Compute average utility of UEs connected to the basestation."""
@@ -824,6 +847,33 @@ class MComCore(gymnasium.Env):
         obs.update({ue.ue_id: ue_features(ue) for ue in self.active})
 
         return obs
+
+        
+    def get_queue_lengths(self):
+        # Return queue lengths from the base station for transferred jobs and accomplished jobs
+        bs_transferred_jobs_queue_ue = self.queue_size_logs['bs_transferred_jobs_queue_ue'][-1] if self.queue_size_logs['bs_transferred_jobs_queue_ue'] else 0
+        bs_accomplished_jobs_queue_ue = self.queue_size_logs['bs_accomplished_jobs_queue_ue'][-1] if self.queue_size_logs['bs_accomplished_jobs_queue_ue'] else 0
+        bs_transferred_jobs_queue_sensor = self.queue_size_logs['bs_transferred_jobs_queue_sensor'][-1] if self.queue_size_logs['bs_transferred_jobs_queue_sensor'] else 0
+        bs_accomplished_jobs_queue_sensor = self.queue_size_logs['bs_accomplished_jobs_queue_sensor'][-1] if self.queue_size_logs['bs_accomplished_jobs_queue_sensor'] else 0
+        
+        return [bs_transferred_jobs_queue_ue, bs_accomplished_jobs_queue_ue, bs_transferred_jobs_queue_sensor, bs_accomplished_jobs_queue_sensor]
+    
+    def get_resource_utilization(self):
+        # Return the bandwidth and CPU utilization (as percentages)
+        bw_utilization = self.resource_allocation_logs["bandwidth_for_ues"][-1] if self.resource_allocation_logs["bandwidth_for_ues"] else 0
+        cpu_utilization = self.resource_allocation_logs["computational_power_for_ues"][-1] if self.resource_allocation_logs["computational_power_for_ues"] else 0
+        
+        return [bw_utilization, cpu_utilization]
+
+    def get_request_frequency(self):
+        # Compute the frequency of requests at the current timestep.
+        ue_requests = self.job_generator.packet_df_ue[self.job_generator.packet_df_ue['creation_time'] == self.time]
+        sensor_requests = self.job_generator.packet_df_sensor[self.job_generator.packet_df_sensor['creation_time'] == self.time]
+        
+        #request_frequency = len(ue_requests) / len(sensor_requests)
+        
+        return [len(ue_requests), len(sensor_requests)]
+
 
     def render(self) -> None:
         mode = self.render_mode
@@ -1111,12 +1161,12 @@ class MComCore(gymnasium.Env):
         sensor_uplink_queue_size = [sensor.data_buffer_uplink.data_queue.qsize() for sensor in self.sensors.values()]
         self.queue_size_logs['sensor_uplink_queues'].append(sensor_uplink_queue_size)
 
-    def log_dropped_packets(self, dropped_ue_jobs, dropped_sensor_jobs):
+    def log_delayed_packets(self, delayed_ue_jobs, delayed_sensor_jobs):
         """Logs the current number of dropped packets at that time step."""
-        self.dropped_packet_logs['time'].append(self.time)
+        self.delayed_packet_logs['time'].append(self.time)
 
-        self.dropped_packet_logs['dropped_ue_packets'].append(dropped_ue_jobs)
-        self.dropped_packet_logs['dropped_sensor_packets'].append(dropped_sensor_jobs)
+        self.delayed_packet_logs['delayed_ue_packets'].append(delayed_ue_jobs)
+        self.delayed_packet_logs['delayed_sensor_packets'].append(delayed_sensor_jobs)
 
     def plot_resource_allocations(self):
         """Plot the resource allocations over time for each base station, each on a separate plot."""
@@ -1204,22 +1254,22 @@ class MComCore(gymnasium.Env):
         plt.tight_layout()
         plt.show()
 
-    def plot_dropped_packets(self):
+    def plot_delayed_packets(self):
         """Plots the number of dropped packets over time for UE and Sensors."""
-        time_steps = self.dropped_packet_logs['time']
+        time_steps = self.delayed_packet_logs['time']
 
         plt.figure(figsize=(10, 6))
         
         # Plot the dropped UE jobs
-        plt.plot(time_steps, self.dropped_packet_logs['dropped_ue_packets'], label="Dropped UE Packets", color="blue", marker='o')
+        plt.plot(time_steps, self.delayed_packet_logs['delayed_ue_packets'], label="Delayed UE Packets", color="blue", marker='o')
         
         # Plot the dropped Sensor jobs
-        plt.plot(time_steps, self.dropped_packet_logs['dropped_sensor_packets'], label="Dropped Sensor Packets", color="red", marker='o')
+        plt.plot(time_steps, self.delayed_packet_logs['delayed_sensor_packets'], label="Delayed Sensor Packets", color="red", marker='o')
         
         # Adding title and labels
-        plt.title("Number of Dropped Packets Over Time")
+        plt.title("Number of Delayed Packets Over Time")
         plt.xlabel("Time Steps")
-        plt.ylabel("Number of Dropped Packets")
+        plt.ylabel("Number of Delayed Packets")
         
         plt.grid(True)
         plt.legend()

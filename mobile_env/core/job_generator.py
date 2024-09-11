@@ -61,8 +61,8 @@ class JobGenerator:
     def _generate_job(self, time: float, device_id: int, device_type: str) -> Job:
         # Generate jobs for devices
         job_index = self._generate_index()
-        communication_request_size = self._generate_communication_request(device_type)
-        computation_request = self._generate_computation_request(device_type)
+        communication_request_size = self._generate_communication_request(self, device_type)
+        computation_request = self._generate_computation_request(self, device_type)
 
         # Create a new job record
         job = {
