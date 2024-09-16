@@ -73,12 +73,14 @@ class JobGenerator:
             'creation_time': time,
             'computation_request': computation_request,
             'initial_request_size': communication_request_size,
-            'remaining_request_size': communication_request_size,
+            'remaining_size': communication_request_size,         
             'serving_time_start': None,
             'serving_time_end': None,
             'serving_time_total': None,
             'processing_time': None,
         }
+
+
 
         # For reward computation, create a data frame
         packet = {

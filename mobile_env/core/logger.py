@@ -41,29 +41,29 @@ class Logger:
         for (bs, sensor), rate in sorted(self.env.datarates_sensor.items(), key=lambda x: x[0][1].sensor_id):
             self.log_simulation(f"Time step: {self.env.time} Data transfer rate for {sensor} connected to {bs} is : {rate} MB")
 
-    def log_device_uplink_queue(self) -> None:
-        """Logs the job indexes, initial sizes, and remaining sizes for every job in the uplink buffer of UEs."""
+    def log_device_uplink_queue(self):
         for ue in self.env.users.values():
-            buffer_size = ue.data_buffer_uplink.data_queue.qsize()
+            buffer_size = ue.data_buffer_uplink.current_size()
             if buffer_size > 0:
                 for job in list(ue.data_buffer_uplink.data_queue.queue):
                     self.log_simulation(
                         f"Time step: {self.env.time} Device: {ue.ue_id}, Job index: {job['packet_id']}, "
-                        f"Initial size: {job['initial_request_size']} MB, Remaining size: {job['remaining_request_size']} MB, "
+                        f"Initial size: {job['initial_request_size']} MB, Remaining size: {job['remaining_size']} MB, "
                         f"Computation request: {job['computation_request']} units"
                     )
 
-    def log_sensor_uplink_queue(self) -> None:
-        """Logs the job indexes, initial sizes, and remaining sizes for every job in the uplink buffer of sensors."""
+
+    def log_sensor_uplink_queue(self):
         for sensor in self.env.sensors.values():
-            buffer_size = sensor.data_buffer_uplink.data_queue.qsize()
+            buffer_size = sensor.data_buffer_uplink.current_size()
             if buffer_size > 0:
                 for job in list(sensor.data_buffer_uplink.data_queue.queue):
                     self.log_simulation(
                         f"Time step: {self.env.time} Sensor: {sensor.sensor_id}, Job index: {job['packet_id']}, "
-                        f"Initial size: {job['initial_request_size']} MB, Remaining size: {job['remaining_request_size']} MB, "
+                        f"Initial size: {job['initial_request_size']} MB, Remaining size: {job['remaining_size']} MB, "
                         f"Computation request: {job['computation_request']} units"
-                    )                 
+                    )
+            
                     
     def log_bs_transferred_jobs_queue(self) -> None:
         """Logs the job indexes, initial sizes, and remaining sizes for every job in the BS uplink queues."""

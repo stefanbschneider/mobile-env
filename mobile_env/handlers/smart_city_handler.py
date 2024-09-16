@@ -3,6 +3,7 @@ from typing import Dict, Tuple
 import numpy as np
 from gymnasium import spaces
 import pandas as pd
+from typing import Optional
 
 from mobile_env.handlers.handler import Handler
 
@@ -33,40 +34,41 @@ class MComSmartCityHandler(Handler):
 
     @classmethod
     def action(cls, env, actions: Tuple[float, float]) -> Tuple[float, float]:
-        """Transform action to expected shape of core environment."""
-        assert len(actions) == 2, "Action must have two elements: bandwidth allocation and computational power allocation."
-
-        bandwidth_allocation, computational_allocation = actions
-
-        # Ensure actions are within valid range
-        bandwidth_allocation = max(0.0, min(1.0, bandwidth_allocation))
-        computational_allocation = max(0.0, min(1.0, computational_allocation))
-
+        bandwidth_allocation = np.clip(actions[0], 0.0, 1.0)
+        computational_allocation = np.clip(actions[1], 0.0, 1.0)
         return bandwidth_allocation, computational_allocation
-    
+
     @classmethod
     def observation(cls, env) -> np.ndarray:
         """Compute system-wide observations for the RL agent."""
         
         # Gather the queue lengths (from base station)
-        queue_lengths = np.array(env.get_queue_lengths()).ravel()
+        queue_lengths = np.array(env.get_queue_lengths(), dtype=np.float32).ravel()
         env.logger.log_reward(f"Queue lengths: {queue_lengths}")      
 
         # Get resource utilization (bandwidth and CPU)
-        resource_utilization = env.get_resource_utilization()
+        resource_utilization = np.array(env.get_resource_utilization(), dtype=np.float32)
         env.logger.log_reward(f"Resource utilization: {resource_utilization}")   
 
-        # Get the frequency of requests or updates
-        #request_frequency = env.get_request_frequency()   
-        #env.logger.log_reward(f"Request frequency: {request_frequency}")
+        # Get the frequency of requests or updates (if used)
+        # request_frequency = np.array(env.get_request_frequency(), dtype=np.float32)
+        # env.logger.log_reward(f"Request frequency: {request_frequency}")
 
         # Concatenate all observations into a single array
         observation = np.concatenate([
             queue_lengths,              # 4 values
-            resource_utilization       # 2 values
-        ])
+            resource_utilization,       # 2 values
+            # request_frequency         # Uncomment if used
+        ]).astype(np.float32)
         
         return observation
+
+    @classmethod
+    def reset(cls, env, seed: Optional[int] = None):
+        # Reset any internal state or RNGs here
+        cls.state_variable = 3  # Example of resetting state
+        if seed is not None:
+            np.random.seed(seed)
 
     @classmethod
     def reward(cls, env) -> float:

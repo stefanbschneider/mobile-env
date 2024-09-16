@@ -11,6 +11,7 @@ import pygame
 from matplotlib import cm
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from pygame import Surface
+import logging
 
 from mobile_env.core import metrics
 from mobile_env.core.arrival import NoDeparture
@@ -34,9 +35,17 @@ class MComCore(gymnasium.Env):
     def __init__(self, stations, users, sensors, config={}, render_mode=None):
         super().__init__()
 
+        # Define the time step duration
+        self.time_step = 1.0  # or any appropriate value representing the time step duration
+
+        # Initialize simulation time
+        self.time = 0.0
         self.render_mode = render_mode
         assert render_mode in self.metadata["render_modes"] + [None]
 
+        self.macro = {}
+        self.resource_allocations = {} 
+        
         # set unspecified parameters to default configuration
         config = deep_dict_merge(self.default_config(), config)
         config = self.seeding(config)
@@ -54,7 +63,7 @@ class MComCore(gymnasium.Env):
 
         # define parameters that track the simulation's progress
         self.EP_MAX_TIME = config["EP_MAX_TIME"]
-        self.time = None
+        self.time = 0.0
         self.closed = False
 
         # defines the simulation's overall basestations and UEs
@@ -167,8 +176,8 @@ class MComCore(gymnasium.Env):
             "width": width,
             "height": height,
             "EP_MAX_TIME": ep_time,
-            "seed": 666,
-            "reset_rng_episode": False,
+            "seed": 3,
+            "reset_rng_episode": True,
             # used simulation models:
             "arrival": NoDeparture,
             "channel": OkumuraHata,
@@ -223,14 +232,14 @@ class MComCore(gymnasium.Env):
         }
 
         # set up default configuration parameters for arrival pattern, ...
-        aparams = {"ep_time": ep_time, "reset_rng_episode": False}
+        aparams = {"ep_time": ep_time, "reset_rng_episode": True}
         config.update({"arrival_params": aparams})
         config.update({"channel_params": {}})
         config.update({"scheduler_params": {"quantum": 2.0}})
         mparams = {
             "width": width,
             "height": height,
-            "reset_rng_episode": False,
+            "reset_rng_episode": True,
         }
         config.update({"movement_params": mparams})
         uparams = {"lower": -20, "upper": 20, "coeffs": (10, 0, 10)}
@@ -251,7 +260,7 @@ class MComCore(gymnasium.Env):
         return config
 
     @classmethod
-    def seeding(cls, config):
+    def seeding(self, config):
         """Return config with updated and rotated seeds."""
 
         seed = config["seed"]
@@ -269,26 +278,28 @@ class MComCore(gymnasium.Env):
 
         return config
 
-    def reset(self, *, seed=None, options=None):
+
+    def reset(self, *, seed: Optional[int] = None, options: Optional[dict] = None) -> Tuple[np.ndarray, dict]:
         """Reset env to starting state. Return the initial obs and info."""
         super().reset(seed=seed)
 
-        # reset time
-        self.time = 0.0
-
-        # set seed
+        # Set seed
         if seed is not None:
+            self.seed = seed
             self.seeding({"seed": seed})
+        else:
+            seed = self.seed  # Use the environment's default seed if none provided
 
-        # initialize RNG or reset (if necessary on episode end)
+        # Initialize RNG or reset (if necessary on episode end)
         if self.reset_rng_episode or self.rng is None:
             self.rng = np.random.default_rng(self.seed)
 
-        # extra options currently not supported
+        # Extra options currently not supported
         if options is not None:
             raise NotImplementedError(
                 "Passing extra options on env.reset() is not supported."
             )
+
 
         # reset state kept by arrival pattern, channel, scheduler, etc.
         self.arrival.reset()
@@ -344,8 +355,11 @@ class MComCore(gymnasium.Env):
         }
 
         # set time of last UE's departure
-        self.max_departure = max(ue.extime for ue in self.users.values())
-
+        if self.users:
+            self.max_departure = max(ue.extime for ue in self.users.values())
+        else:
+            self.max_departure = self.EP_MAX_TIME
+            
         # reset episode's results of metrics tracked by the monitor
         self.monitor.reset()
 
@@ -359,29 +373,26 @@ class MComCore(gymnasium.Env):
         # store latest monitored results in `info` dictionary
         info = {**info, **self.monitor.info()}
 
-        # #reset the sensor's logs 
-        # for sensor in self.sensors.values():
-        #     sensor.logs.clear()
-        
-        return self.handler.observation(self), info
+        # Compute initial observation and info
+        observation = self.handler.observation(self)
+        info = self.handler.info(self)
 
-    def apply_action(self, bs: BaseStation, bandwidth_allocation: float, computational_allocation: float) -> Tuple[float, float, float, float]:
-        """Allocate bandwidth and computational resource between UEs and sensors."""
-        if not (0 <= bandwidth_allocation <= 1 and 0 <= computational_allocation <= 1):
-            raise ValueError("Allocations must be between 0 and 1")
-        
-        # Apply bandwidth resource allocation to UEs and sensors
-        ue_bandwidth = bs.bw * bandwidth_allocation
-        sensor_bandwidth = bs.bw * (1 - bandwidth_allocation)
+        # Return initial observation and info
+        return observation, info
+    
+    def apply_action(self, bs, bandwidth_allocation, computational_allocation):
+        total_bandwidth = bs.bandwidth
+        total_computational_power = bs.computational_power
 
-        # Apply computational resource allocation to UEs and sensors
-        ue_computational_power = bs.computational_power * computational_allocation
-        sensor_computational_power = bs.computational_power * (1 - computational_allocation)
+        # Allocate resources based on the actions
+        bandwidth_for_ues = total_bandwidth * bandwidth_allocation
+        bandwidth_for_sensors = total_bandwidth * (1 - bandwidth_allocation)
 
-        self.logger.log_simulation(f"Time step: {self.time} Bandwidth allocated to UEs: {ue_bandwidth} Hz, to Sensors: {sensor_bandwidth} Hz")
-        self.logger.log_simulation(f"Time step: {self.time} Computational power allocated to UEs: {ue_computational_power} units, to Sensors: {sensor_computational_power} units")
+        computational_power_for_ues = total_computational_power * computational_allocation
+        computational_power_for_sensors = total_computational_power * (1 - computational_allocation)
 
-        return ue_bandwidth, sensor_bandwidth, ue_computational_power, sensor_computational_power
+        # Return all four values
+        return bandwidth_for_ues, bandwidth_for_sensors, computational_power_for_ues, computational_power_for_sensors
 
     def check_connectivity(self, bs: BaseStation, ue: UserEquipment) -> bool:
         """Connection can be established if SNR exceeds threshold of UE."""
@@ -480,25 +491,20 @@ class MComCore(gymnasium.Env):
             #self.logger.log_simulation(f"Sensor {sensor_id} logs after processing UE {ue.ue_id}: {sensor.logs}")
 
     def step(self, actions: Tuple[float, float]):
-        assert not self.time_is_up, "step() called on terminated episode"
-
+        
         self.logger.log_simulation(f"Time step: {self.time} Establishing connections...")
 
-        # connect UEs and sensors to the closest base station and establish connection
+        # Connect UEs and sensors to the closest base station and establish connection
         self.connect_bs_ue()
         self.connect_bs_sensor()
 
-        # check snr thresholds, release established connections that moved e.g. out-of-range
+        # Check SNR thresholds, release established connections that moved out-of-range
         self.update_connections()
         self.update_connections_sensors()
 
-        # update UE positions in sensor logs
-        #TODO: check the function, if it is working properly
-        #self.update_sensor_logs()
-
         # Logging base station connections
         self.logger.log_all_connections()
-     
+
         # Generate jobs for each UE and sensor
         self.logger.log_simulation(f"Time step: {self.time} Job generation starting...")
 
@@ -509,35 +515,61 @@ class MComCore(gymnasium.Env):
 
         self.logger.log_simulation(f"Time step: {self.time} Job generation terminated...")
 
-        # Log sensor and ue data queues
+        # Log sensor and UE data queues
         self.logger.log_all_queues()
 
-        # apply handler to transform actions to expected shape
+        # Apply handler to transform actions to expected shape
         bandwidth_allocation, computational_allocation = self.handler.action(self, actions)
 
         self.logger.log_simulation(f"Time step: {self.time} Action applied...")
         self.logger.log_simulation(f"Time step: {self.time} Communication resource allocation to UEs in percentage: {bandwidth_allocation * 100:.2f} %")
         self.logger.log_simulation(f"Time step: {self.time} Computation resource allocation to UEs in percentage: {computational_allocation * 100:.2f} %")
 
-        # Store the resource allocations for each BS in the dictionary
-        self.resource_allocations = {}
-        for bs in self.stations.values():
-            bandwidth_for_ues, bandwidth_for_sensors, computational_power_for_ues, \
-            computational_power_for_sensors = self.apply_action(bs, bandwidth_allocation, computational_allocation)
-
-            self.resource_allocations[bs] = {
-                'bandwidth_for_ues': bandwidth_for_ues,
-                'bandwidth_for_sensors': bandwidth_for_sensors,
-                'computational_power_for_ues': computational_power_for_ues,
-                'computational_power_for_sensors': computational_power_for_sensors
-            }
-
-        # log the resource allocations
-        self.log_resource_allocations(bandwidth_allocation, computational_allocation)
-            
-        # update connections' data rates after re-scheduling
         self.datarates = {}
         for bs in self.stations.values():
+            if bs not in self.resource_allocations:
+                self.resource_allocations[bs] = {}
+            if 'bandwidth_for_ues' not in self.resource_allocations[bs]:
+                print(f"Error: 'bandwidth_for_ues' key is missing in resource allocation for BS {bs}")
+                print(f"Current resource allocation: {self.resource_allocations[bs]}")
+                continue  # Skip this base station or handle appropriately
+        
+            bs_bandwidth = self.resource_allocations[bs]['bandwidth_for_ues']
+            drates_ue = self.station_allocation(bs, bs_bandwidth)
+            self.datarates.update(drates_ue)
+
+        # Calculate macro data rates
+        self.macro = self.macro_datarates(self.datarates)
+        # Store the resource allocations for each BS in the dictionary
+        self.resource_allocations = {}  # Ensure this is a dictionary
+
+        for bs in self.stations.values():
+            # Initialize resource_allocations for each base station if not already present
+            if bs not in self.resource_allocations:
+                self.resource_allocations[bs] = {
+                    'bandwidth_for_ues': 0.0,
+                    'bandwidth_for_sensors': 0.0,
+                    'computational_power_for_ues': 0.0,
+                    'computational_power_for_sensors': 0.0
+                }
+            else:
+                # Ensure all keys exist in the dictionary
+                self.resource_allocations[bs].setdefault('bandwidth_for_ues', 0.0)
+                self.resource_allocations[bs].setdefault('bandwidth_for_sensors', 0.0)
+                self.resource_allocations[bs].setdefault('computational_power_for_ues', 0.0)
+                self.resource_allocations[bs].setdefault('computational_power_for_sensors', 0.0)
+
+        # Log the resource allocations
+        self.log_resource_allocations(bandwidth_allocation, computational_allocation)
+
+        # Update connections' data rates after re-scheduling
+        self.datarates = {}
+        for bs in self.stations.values():
+            if 'bandwidth_for_ues' not in self.resource_allocations[bs]:
+                print(f"Error: 'bandwidth_for_ues' key is missing in resource allocation for BS {bs}")
+                print(f"Current resource allocation: {self.resource_allocations[bs]}")
+                continue  # Skip this base station or handle appropriately
+            
             bs_bandwidth = self.resource_allocations[bs]['bandwidth_for_ues']
             drates_ue = self.station_allocation(bs, bs_bandwidth)
             self.datarates.update(drates_ue)
@@ -547,76 +579,62 @@ class MComCore(gymnasium.Env):
             bs_bandwidth = self.resource_allocations[bs]['bandwidth_for_sensors']
             drates_sensor = self.station_allocation_sensor(bs, bs_bandwidth)
             self.datarates_sensor.update(drates_sensor)
-        
-        # update macro (aggregated) data rates for each UE
-        # TODO: check if this is necessary
-        self.macro = self.macro_datarates(self.datarates)
 
-        # logging datarates
+        # Logging data rates
         self.logger.log_all_datarates()
 
-        # packet uplink transmission
+        # Packet uplink transmission
         self.logger.log_simulation(f"Time step: {self.time} Job transfer starting...")
         self.data_transfer_manager.transfer_data_uplink()
         self.logger.log_simulation(f"Time step: {self.time} Job transfer over...")
 
-        # log sensor and ue data queues
+        # Log sensor and UE data queues
         self.logger.log_all_queues()
 
-        # process data in MEC servers
+        # Process data in MEC servers
         self.logger.log_simulation(f"Time step: {self.time} Data processing starting...")
+        # Retrieve computational power allocations for processing
+        computational_power_for_ues = {bs.bs_id: self.resource_allocations[bs]['computational_power_for_ues'] for bs in self.stations.values()}
+        computational_power_for_sensors = {bs.bs_id: self.resource_allocations[bs]['computational_power_for_sensors'] for bs in self.stations.values()}
         self.data_transfer_manager.process_data_mec(computational_power_for_ues, computational_power_for_sensors)
         self.logger.log_simulation(f"Time step: {self.time} Data processing over...")
 
-        # log sensor and ue data queues
+        # Log sensor and UE data queues
         self.logger.log_all_queues()
 
-        # log queue sizes
-        # TODO: should we log the number of jobs in the queue
-        # TODO: OR should we log the size of each job in the queue instead
+        # Log queue sizes
         self.log_queue_sizes()
 
-        # log the job data frame
+        # Log the job data frames
         self.logger.log_reward(f"Time step: {self.time} Data frames UE:")
         self.job_generator.log_df_ue()
         self.logger.log_reward(f"Time step: {self.time} Data frames Sensor:")
         self.job_generator.log_df_sensor()
 
-        # compute utilities from UEs' data rates & log its mean value
-        # TODO: DO WE NEED THIS?
-        self.utilities = {
-            ue: self.utility.utility(self.macro[ue]) for ue in self.active
-        }
+        # Compute rewards
+        reward = self.handler.reward(self)
+        if not isinstance(reward, float):
+            reward = float(reward)
 
-        # scale utilities to range [-1, 1] before computing rewards
-        # TODO: DO WE NEED THIS?
-        self.utilities = {
-            ue: self.utility.scale(util) for ue, util in self.utilities.items()
-        }
-
-        # compute rewards
-        rewards = self.handler.reward(self)
-
-        # check all the e2e delay threshold for all jobs
+        # Check all the E2E delay thresholds for all jobs
         delayed_ue_jobs, delayed_sensor_jobs = self.check_packet_delays()
 
-        # log the number of dropped jobs
+        # Log the number of delayed jobs
         self.log_delayed_packets(delayed_ue_jobs, delayed_sensor_jobs)
 
-        # evaluate metrics and update tracked metrics given the core simulation
-        #TODO: check what does this monitor class do
+        # Evaluate metrics and update tracked metrics given the core simulation
         self.monitor.update(self)
 
-        # move user equipments around; update positions of UEs
+        # Move user equipments around; update positions of UEs
         for ue in self.active:
             ue.x, ue.y = self.movement.move(ue)
 
-        # terminate existing connections for exiting UEs
+        # Terminate existing connections for UEs that are leaving
         leaving = set([ue for ue in self.active if ue.extime <= self.time])
         for bs, ues in self.connections.items():
             self.connections[bs] = ues - leaving
 
-        # update list of active UEs & add those that begin to request service
+        # Update list of active UEs & add those that begin to request service
         self.active = sorted(
             [
                 ue
@@ -626,37 +644,48 @@ class MComCore(gymnasium.Env):
             key=lambda ue: ue.ue_id,
         )
 
-        # update internal time of environment
-        self.time += 1
+        # Increment the simulation time
+        self.time += self.time_step  # Ensure self.time_step is defined, e.g., self.time_step = 1.0
 
-        # check whether episode is done & close the environment
+        # Check whether episode is done & close the environment if necessary
         if self.time_is_up and self.window:
             self.close()
 
-        # do not invoke next step on policies before at least one UE is active
+        
+        # Do not invoke next step on policies before at least one UE is active
         if not self.active and not self.time_is_up:
-            return self.step({})
+            return observation, reward, terminated, truncated, info
 
-        # compute observations for next step and information
-        # methods are defined by handler according to strategy pattern
-        # NOTE: compute observations after proceeding in time (may skip ahead)
+        # Compute observations for next step and information
         observation = self.handler.observation(self)
         info = self.handler.info(self)
 
-        # store latest monitored results in `info` dictionary
+        # Store latest monitored results in `info` dictionary
         info = {**info, **self.monitor.info()}
 
-        # there is not natural episode termination, just limited time
-        # terminated is always False and truncated is True once time is up
+        # There is no natural episode termination, just limited time
+        # 'terminated' is always False and 'truncated' is True once time is up
         terminated = False
         truncated = self.time_is_up
+        
+        MAX_STEPS = 10  # For example, set a limit of 10,000 steps
+        if self.time >= MAX_STEPS:
+            print(f"Simulation reached maximum step limit of {MAX_STEPS}")
+            terminated = True
+            truncated = True
 
-        return observation, rewards, terminated, truncated, info
 
-    @property
+        # Return the observation, reward, termination flags, and info
+        assert observation.shape == self.observation_space.shape
+        return observation, reward, terminated, truncated, info
+
+
     def time_is_up(self):
-        """Return true after max. time steps or once last UE departed."""
-        return self.time >= min(self.EP_MAX_TIME, self.max_departure)
+        time_limit = min(self.EP_MAX_TIME, self.max_departure)
+        is_up = self.time >= time_limit
+        self.logger.log_simulation(f"Checking time_is_up: {is_up} (time: {self.time}, time_limit: {time_limit})")
+        return is_up
+
 
     def macro_datarates(self, datarates):
         """Compute aggregated UE data rates given all its connections."""
@@ -850,20 +879,42 @@ class MComCore(gymnasium.Env):
 
         
     def get_queue_lengths(self):
-        # Return queue lengths from the base station for transferred jobs and accomplished jobs
-        bs_transferred_jobs_queue_ue = self.queue_size_logs['bs_transferred_jobs_queue_ue'][-1] if self.queue_size_logs['bs_transferred_jobs_queue_ue'] else 0
-        bs_accomplished_jobs_queue_ue = self.queue_size_logs['bs_accomplished_jobs_queue_ue'][-1] if self.queue_size_logs['bs_accomplished_jobs_queue_ue'] else 0
-        bs_transferred_jobs_queue_sensor = self.queue_size_logs['bs_transferred_jobs_queue_sensor'][-1] if self.queue_size_logs['bs_transferred_jobs_queue_sensor'] else 0
-        bs_accomplished_jobs_queue_sensor = self.queue_size_logs['bs_accomplished_jobs_queue_sensor'][-1] if self.queue_size_logs['bs_accomplished_jobs_queue_sensor'] else 0
-        
-        return [bs_transferred_jobs_queue_ue, bs_accomplished_jobs_queue_ue, bs_transferred_jobs_queue_sensor, bs_accomplished_jobs_queue_sensor]
-    
+        # Return total queue lengths from the base station for transferred jobs and accomplished jobs
+        if self.queue_size_logs['bs_transferred_jobs_queue_ue']:
+            bs_transferred_jobs_queue_ue = float(self.queue_size_logs['bs_transferred_jobs_queue_ue'][-1])
+        else:
+            bs_transferred_jobs_queue_ue = 0.0
+
+        if self.queue_size_logs['bs_accomplished_jobs_queue_ue']:
+            bs_accomplished_jobs_queue_ue = float(self.queue_size_logs['bs_accomplished_jobs_queue_ue'][-1])
+        else:
+            bs_accomplished_jobs_queue_ue = 0.0
+
+        if self.queue_size_logs['bs_transferred_jobs_queue_sensor']:
+            bs_transferred_jobs_queue_sensor = float(self.queue_size_logs['bs_transferred_jobs_queue_sensor'][-1])
+        else:
+            bs_transferred_jobs_queue_sensor = 0.0
+
+        if self.queue_size_logs['bs_accomplished_jobs_queue_sensor']:
+            bs_accomplished_jobs_queue_sensor = float(self.queue_size_logs['bs_accomplished_jobs_queue_sensor'][-1])
+        else:
+            bs_accomplished_jobs_queue_sensor = 0.0
+
+        return [
+            bs_transferred_jobs_queue_ue,
+            bs_accomplished_jobs_queue_ue,
+            bs_transferred_jobs_queue_sensor,
+            bs_accomplished_jobs_queue_sensor
+        ]
+
+
     def get_resource_utilization(self):
         # Return the bandwidth and CPU utilization (as percentages)
-        bw_utilization = self.resource_allocation_logs["bandwidth_for_ues"][-1] if self.resource_allocation_logs["bandwidth_for_ues"] else 0
-        cpu_utilization = self.resource_allocation_logs["computational_power_for_ues"][-1] if self.resource_allocation_logs["computational_power_for_ues"] else 0
+        bw_utilization = float(self.resource_allocation_logs["bandwidth_for_ues"][-1]) if self.resource_allocation_logs["bandwidth_for_ues"] else 0.0
+        cpu_utilization = float(self.resource_allocation_logs["computational_power_for_ues"][-1]) if self.resource_allocation_logs["computational_power_for_ues"] else 0.0
         
         return [bw_utilization, cpu_utilization]
+
 
     def get_request_frequency(self):
         # Compute the frequency of requests at the current timestep.
@@ -1143,22 +1194,23 @@ class MComCore(gymnasium.Env):
         """Logs the current queue sizes of all entities."""
         self.queue_size_logs['time'].append(self.time)
 
-        bs_transferred_jobs_queue_ue_size = [bs.transferred_jobs_ue.data_queue.qsize() for bs in self.stations.values()]
+        # Sum the queue sizes across all base stations
+        bs_transferred_jobs_queue_ue_size = sum(bs.transferred_jobs_ue.data_queue.qsize() for bs in self.stations.values())
         self.queue_size_logs['bs_transferred_jobs_queue_ue'].append(bs_transferred_jobs_queue_ue_size)
 
-        bs_accomplished_jobs_queue_ue_size = [bs.accomplished_jobs_ue.data_queue.qsize() for bs in self.stations.values()]
+        bs_accomplished_jobs_queue_ue_size = sum(bs.accomplished_jobs_ue.data_queue.qsize() for bs in self.stations.values())
         self.queue_size_logs['bs_accomplished_jobs_queue_ue'].append(bs_accomplished_jobs_queue_ue_size)
 
-        bs_transferred_jobs_queue_sensor_size = [bs.transferred_jobs_sensor.data_queue.qsize() for bs in self.stations.values()]
+        bs_transferred_jobs_queue_sensor_size = sum(bs.transferred_jobs_sensor.data_queue.qsize() for bs in self.stations.values())
         self.queue_size_logs['bs_transferred_jobs_queue_sensor'].append(bs_transferred_jobs_queue_sensor_size)
 
-        bs_accomplished_job_queue_size = [bs.accomplished_jobs_sensor.data_queue.qsize() for bs in self.stations.values()]
+        bs_accomplished_job_queue_size = sum(bs.accomplished_jobs_sensor.data_queue.qsize() for bs in self.stations.values())
         self.queue_size_logs['bs_accomplished_jobs_queue_sensor'].append(bs_accomplished_job_queue_size)
 
-        ue_uplink_queue_sizes = [ue.data_buffer_uplink.data_queue.qsize() for ue in self.users.values()]
+        ue_uplink_queue_sizes = sum(ue.data_buffer_uplink.data_queue.qsize() for ue in self.users.values())
         self.queue_size_logs['ue_uplink_queues'].append(ue_uplink_queue_sizes)
 
-        sensor_uplink_queue_size = [sensor.data_buffer_uplink.data_queue.qsize() for sensor in self.sensors.values()]
+        sensor_uplink_queue_size = sum(sensor.data_buffer_uplink.data_queue.qsize() for sensor in self.sensors.values())
         self.queue_size_logs['sensor_uplink_queues'].append(sensor_uplink_queue_size)
 
     def log_delayed_packets(self, delayed_ue_jobs, delayed_sensor_jobs):
