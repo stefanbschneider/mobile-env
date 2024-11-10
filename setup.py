@@ -20,7 +20,7 @@ requirements = [
 
 setup(
     name="mobile-env",
-    version="2.0.1",
+    version="2.0.2",
     author="Stefan Schneider, Stefan Werner",
     description="mobile-env: An Open Environment for Autonomous Coordination in "
     "Wireless Mobile Networks",
@@ -28,7 +28,7 @@ setup(
     long_description_content_type="text/markdown",
     url="https://github.com/stefanbschneider/mobile-env",
     packages=find_packages(),
-    python_requires=">=3.8.0",
+    python_requires=">=3.9.0",
     install_requires=requirements,
     zip_safe=False,
     classifiers=[
