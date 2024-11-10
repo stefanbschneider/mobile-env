@@ -3,6 +3,7 @@ from typing import Dict
 import gymnasium
 import numpy as np
 
+from mobile_env.core.base import MComCore
 from mobile_env.handlers.handler import Handler
 
 
@@ -20,7 +21,7 @@ class MComMAHandler(Handler):
         return sum(env.feature_sizes[ftr] for ftr in cls.features)
 
     @classmethod
-    def action_space(cls, env) -> gymnasium.spaces.Dict:
+    def action_space(cls, env: MComCore) -> gymnasium.spaces.Dict:
         return gymnasium.spaces.Dict(
             {
                 ue.ue_id: gymnasium.spaces.Discrete(env.NUM_STATIONS + 1)
@@ -29,7 +30,7 @@ class MComMAHandler(Handler):
         )
 
     @classmethod
-    def observation_space(cls, env) -> gymnasium.spaces.Dict:
+    def observation_space(cls, env: MComCore) -> gymnasium.spaces.Dict:
         size = cls.ue_obs_size(env)
         space = {
             ue_id: gymnasium.spaces.Box(low=-1, high=1, shape=(size,), dtype=np.float32)
@@ -39,7 +40,7 @@ class MComMAHandler(Handler):
         return gymnasium.spaces.Dict(space)
 
     @classmethod
-    def reward(cls, env):
+    def reward(cls, env: MComCore):
         """UE's reward is their utility and the avg. utility of nearby BSs."""
         # compute average utility of UEs for each BS
         # set to lower bound if no UEs are connected
@@ -64,7 +65,7 @@ class MComMAHandler(Handler):
         return rewards
 
     @classmethod
-    def observation(cls, env) -> Dict[int, np.ndarray]:
+    def observation(cls, env: MComCore) -> Dict[int, np.ndarray]:
         """Select features for MA setting & flatten each UE's features."""
 
         # get features for currently active UEs
@@ -85,6 +86,6 @@ class MComMAHandler(Handler):
         return obs
 
     @classmethod
-    def action(cls, env, action: Dict[int, int]):
+    def action(cls, env: MComCore, action: Dict[int, int]):
         """Base environment by default expects action dictionary."""
         return action

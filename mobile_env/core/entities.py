@@ -47,10 +47,10 @@ class UserEquipment:
         self.noise = noise
         self.height = height
 
-        self.x: float = None
-        self.y: float = None
-        self.stime: int = None
-        self.extime: int = None
+        self.x: float
+        self.y: float
+        self.stime: int
+        self.extime: int
 
     @property
     def point(self):

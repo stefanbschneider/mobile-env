@@ -21,13 +21,20 @@ from mobile_env.core.schedules import ResourceFair
 from mobile_env.core.util import BS_SYMBOL, deep_dict_merge
 from mobile_env.core.utilities import BoundedLogUtility
 from mobile_env.handlers.central import MComCentralHandler
+from mobile_env.handlers.handler import Handler
 
 
 class MComCore(gymnasium.Env):
     NOOP_ACTION = 0
     metadata = {"render_modes": ["rgb_array", "human"]}
 
-    def __init__(self, stations, users, config={}, render_mode=None):
+    def __init__(
+        self,
+        stations: list[BaseStation],
+        users: list[UserEquipment],
+        config={},
+        render_mode=None,
+    ):
         super().__init__()
 
         self.render_mode = render_mode
@@ -70,7 +77,7 @@ class MComCore(gymnasium.Env):
 
         # set object that handles calls to action(), reward() & observation()
         # set action & observation space according to handler
-        self.handler = config["handler"]
+        self.handler: Handler = config["handler"]
         self.action_space = self.handler.action_space(self)
         self.observation_space = self.handler.observation_space(self)
 

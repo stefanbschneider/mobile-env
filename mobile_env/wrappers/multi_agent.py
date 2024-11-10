@@ -1,18 +1,20 @@
-from typing import Tuple
+from typing import Optional, Tuple
 
 import gymnasium
 import numpy as np
 from ray.rllib.env.multi_agent_env import MultiAgentEnv
 from ray.rllib.utils.typing import MultiAgentDict
 
+from mobile_env.core.base import MComCore
+
 
 class RLlibMAWrapper(MultiAgentEnv):
-    def __init__(self, env):
+    def __init__(self, env: MComCore):
+        super().__init__()
+
         # class wrapps environment object
         self.env = env
 
-        # set number of overall controllable actors
-        self.num_agents = len(self.env.users)
         # set max. number of steps for RLlib trainer
         self.max_episode_steps = self.env.EP_MAX_TIME
 
@@ -27,7 +29,7 @@ class RLlibMAWrapper(MultiAgentEnv):
 
         # track UE IDs of last observation's dictionary, i.e.,
         # what UEs were active in the previous step
-        self.prev_step_ues = None
+        self.prev_step_ues: Optional[set[int]] = None
 
     def reset(self, *, seed=None, options=None) -> MultiAgentDict:
         obs, info = self.env.reset(seed=seed, options=options)
@@ -36,13 +38,14 @@ class RLlibMAWrapper(MultiAgentEnv):
 
     def step(
         self, action_dict: MultiAgentDict
-    ) -> Tuple[MultiAgentDict, MultiAgentDict, MultiAgentDict, MultiAgentDict]:
+    ) -> Tuple[MultiAgentDict, MultiAgentDict, MultiAgentDict, MultiAgentDict, MultiAgentDict]:
         obs, rews, terminated, truncated, infos = self.env.step(action_dict)
 
         # UEs that are not active after `step()` are done (here: truncated)
         # NOTE: `truncateds` keys are keys of previous observation dictionary
+        assert self.prev_step_ues is not None
         inactive_ues = self.prev_step_ues - set([ue.ue_id for ue in self.env.active])
-        truncateds = {
+        truncateds: MultiAgentDict = {
             ue_id: True if ue_id in inactive_ues else False
             for ue_id in self.prev_step_ues
         }
@@ -51,7 +54,7 @@ class RLlibMAWrapper(MultiAgentEnv):
         assert (
             not terminated
         ), "There is no natural episode termination. terminated should be False."
-        terminateds = {ue_id: False for ue_id in self.prev_step_ues}
+        terminateds: MultiAgentDict = {ue_id: False for ue_id in self.prev_step_ues}
         terminateds["__all__"] = False
 
         # update keys of previous observation dictionary
