@@ -6,7 +6,6 @@ from ray.rllib.env.multi_agent_env import MultiAgentEnv
 from ray.rllib.utils.typing import MultiAgentDict
 
 from mobile_env.core.base import MComCore
-from mobile_env.handlers.multi_agent import MComMAHandler
 
 
 class RLlibMAWrapper(MultiAgentEnv):
