@@ -15,7 +15,6 @@ class RLlibMAWrapper(MultiAgentEnv):
 
         # class wrapps environment object
         self.env = env
-        self.possible_agents = list(self.env.users.keys())
 
         # set max. number of steps for RLlib trainer
         self.max_episode_steps = self.env.EP_MAX_TIME
