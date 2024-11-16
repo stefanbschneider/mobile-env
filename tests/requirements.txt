@@ -10,3 +10,4 @@ sb3_contrib>=2.0.0a1
 # Only Ray 2.3+ supports gymnasium
 # TODO: enable ray later; conflicts with sb3; not needed for tests
 #ray[rllib]>=2.3.0
+nbmake

@@ -41,3 +41,7 @@ jobs:
     - name: Run tests with pytest
       run: |
         pytest
+
+    - name: Run test notebook
+      run: |
+        pytest --nbmake examples/test.ipynb
