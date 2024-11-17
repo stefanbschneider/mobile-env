@@ -1,13 +1,10 @@
 # extra requirements for testing
 pre-commit
-# limit importlib to avoid flake8 error: https://stackoverflow.com/a/73932581/2745116
-importlib-metadata<5.0
+importlib-metadata
 flake8
 pytest
+nbmake
 # Older stable baselines versions do not support gymnasium
 #stable-baselines3>=2.0.0
-sb3_contrib>=2.0.0a1
 # Only Ray 2.3+ supports gymnasium
-# TODO: enable ray later; conflicts with sb3; not needed for tests
 #ray[rllib]>=2.3.0
-nbmake

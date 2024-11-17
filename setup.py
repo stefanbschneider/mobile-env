@@ -9,7 +9,7 @@ with open(os.path.join(this_directory, "README.md"), encoding="utf-8") as f:
 
 
 requirements = [
-    "gymnasium>=1.0.0",
+    "gymnasium",
     "matplotlib",
     "numpy",
     "pandas",
