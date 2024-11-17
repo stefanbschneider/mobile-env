@@ -6,5 +6,5 @@ pytest
 nbmake
 # Older stable baselines versions do not support gymnasium
 stable-baselines3>=2.0.0
-# Only Ray 2.3+ supports gymnasium
-#ray[rllib]>=2.3.0
+# Only Ray 2.3+ supports gymnasium. Ray 2.39 needs gymnasium 1.0 and isn't fully supported yet.
+#ray[rllib]>=2.3.0, <2.39
