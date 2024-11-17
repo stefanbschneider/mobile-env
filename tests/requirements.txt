@@ -5,6 +5,6 @@ flake8
 pytest
 nbmake
 # Older stable baselines versions do not support gymnasium
-#stable-baselines3>=2.0.0
+stable-baselines3>=2.0.0
 # Only Ray 2.3+ supports gymnasium
 #ray[rllib]>=2.3.0
