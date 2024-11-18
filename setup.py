@@ -9,7 +9,7 @@ with open(os.path.join(this_directory, "README.md"), encoding="utf-8") as f:
 
 
 requirements = [
-    "gymnasium<1.0.0",
+    "gymnasium",
     "matplotlib",
     "numpy",
     "pandas",
@@ -20,7 +20,7 @@ requirements = [
 
 setup(
     name="mobile-env",
-    version="2.0.3",
+    version="2.1.0",
     author="Stefan Schneider, Stefan Werner",
     description="mobile-env: An Open Environment for Autonomous Coordination in "
     "Wireless Mobile Networks",

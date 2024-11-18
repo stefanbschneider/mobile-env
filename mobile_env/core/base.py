@@ -202,7 +202,7 @@ class MComCore(gymnasium.Env):
             self.rng = np.random.default_rng(self.seed)
 
         # extra options currently not supported
-        if options is not None:
+        if options is not None and options != {}:
             raise NotImplementedError(
                 "Passing extra options on env.reset() is not supported."
             )

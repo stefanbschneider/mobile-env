@@ -9,11 +9,16 @@ from mobile_env.core.base import MComCore
 
 
 class RLlibMAWrapper(MultiAgentEnv):
-    def __init__(self, env: MComCore):
+    def __init__(self, env: gymnasium.Env):
         super().__init__()
 
-        # class wrapps environment object
-        self.env = env
+        # Keep a reference to the mobile-env base environment, which is wrapped by this class.
+        # Remove any gymnasium wrappers first if needed.
+        if isinstance(env, MComCore):
+            self.env: MComCore = env
+        else:
+            assert isinstance(env.unwrapped, MComCore), "The unwrapped env should be a mobile-env."
+            self.env = env.unwrapped
 
         # set max. number of steps for RLlib trainer
         self.max_episode_steps = self.env.EP_MAX_TIME
