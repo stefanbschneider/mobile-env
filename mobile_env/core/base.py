@@ -582,9 +582,10 @@ class MComCore(gymnasium.Env):
 
         if mode == "rgb_array":
             # render RGB image for e.g. video recording
-            data = np.frombuffer(canvas.tostring_rgb(), dtype=np.uint8)
-            # reshape image from 1d array to 2d array
-            return data.reshape(canvas.get_width_height()[::-1] + (3,))
+            data = np.frombuffer(canvas.buffer_rgba(), dtype=np.uint8)
+            # reshape image from 1d array to 2d array; then drop alpha channel (not needed)
+            arr = data.reshape(canvas.get_width_height()[::-1] + (4,))[..., :3]
+            return arr
 
         elif mode == "human":
             # render RGBA image on pygame surface
