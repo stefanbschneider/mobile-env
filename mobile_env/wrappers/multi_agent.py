@@ -36,12 +36,16 @@ class RLlibMAWrapper(MultiAgentEnv):
             low=-1, high=1, shape=(size,), dtype=np.float32
         )
 
-        # For the new API stack, set observation_spaces and action_spaces as None
-        # This forces Ray to use get_observation_space and get_action_space methods
+        # For the new Ray API stack, set observation_spaces and action_spaces as None.
+        # The new API stack calls get_observation_space(agent_id) and get_action_space(agent_id)
+        # methods for each agent instead of trying to iterate over observation_space/action_space.
+        # Setting these to None forces Ray to use the per-agent methods.
         self.observation_spaces = None
         self.action_spaces = None
         
-        # Set observation_space and action_space to None to avoid iteration errors
+        # Set observation_space and action_space to None for the new API stack.
+        # This prevents Ray from trying to convert them to dictionaries via dict(self.action_space),
+        # which would fail with TypeError: 'Box/Discrete object is not iterable'.
         self.observation_space = None
         self.action_space = None
 
@@ -58,11 +62,17 @@ class RLlibMAWrapper(MultiAgentEnv):
     
     @property
     def possible_agents(self):
-        """Return the list of possible agent IDs (required for new API stack)."""
-        if self._possible_agents is None:
-            # Return all user IDs from the environment
-            return list(self.env.users.keys())
-        return self._possible_agents
+        """Return the list of possible agent IDs (required for new API stack).
+        
+        Returns agent IDs after reset if available, otherwise returns all user IDs
+        from the environment configuration. This ensures consistent agent IDs across
+        the environment's lifecycle.
+        """
+        if self._possible_agents is not None:
+            return self._possible_agents
+        # Fallback to all users from environment if not yet reset
+        # This is safe because mobile-env has a fixed set of users defined at initialization
+        return list(self.env.users.keys())
 
     def step(
         self, action_dict: MultiAgentDict
