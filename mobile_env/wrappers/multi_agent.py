@@ -36,16 +36,12 @@ class RLlibMAWrapper(MultiAgentEnv):
             low=-1, high=1, shape=(size,), dtype=np.float32
         )
 
-        # For the new Ray API stack, set observation_spaces and action_spaces as None.
-        # The new API stack calls get_observation_space(agent_id) and get_action_space(agent_id)
-        # methods for each agent instead of trying to iterate over observation_space/action_space.
-        # Setting these to None forces Ray to use the per-agent methods.
+        # For the new Ray API stack:
+        # - Set observation_spaces/action_spaces to None to force Ray to use per-agent methods
+        # - Set observation_space/action_space to None to prevent TypeError from dict(space)
+        # Ray will call get_observation_space(agent_id) and get_action_space(agent_id) instead
         self.observation_spaces = None
         self.action_spaces = None
-        
-        # Set observation_space and action_space to None for the new API stack.
-        # This prevents Ray from trying to convert them to dictionaries via dict(self.action_space),
-        # which would fail with TypeError: 'Box/Discrete object is not iterable'.
         self.observation_space = None
         self.action_space = None
 
