@@ -7,7 +7,7 @@ import matplotlib.patheffects as pe
 import matplotlib.pyplot as plt
 import numpy as np
 import pygame
-from matplotlib import cm
+from matplotlib import colormaps
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from pygame import Surface
 
@@ -626,7 +626,7 @@ class MComCore(gymnasium.Env):
             raise ValueError("Invalid rendering mode.")
 
     def render_simulation(self, ax) -> None:
-        colormap = cm.get_cmap("RdYlGn")
+        colormap = colormaps["RdYlGn"]
         # define normalization for unscaled utilities
         unorm = plt.Normalize(self.utility.lower, self.utility.upper)
 
