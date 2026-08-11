@@ -7,7 +7,7 @@ import matplotlib.patheffects as pe
 import matplotlib.pyplot as plt
 import numpy as np
 import pygame
-from matplotlib import cm
+from matplotlib import colormaps
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from pygame import Surface
 
@@ -582,9 +582,11 @@ class MComCore(gymnasium.Env):
 
         if mode == "rgb_array":
             # render RGB image for e.g. video recording
-            data = np.frombuffer(canvas.tostring_rgb(), dtype=np.uint8)
-            # reshape image from 1d array to 2d array
-            return data.reshape(canvas.get_width_height()[::-1] + (3,))
+            # tostring_rgb() was removed in matplotlib >= 3.10; use buffer_rgba()
+            # and drop the alpha channel instead
+            data = np.frombuffer(canvas.buffer_rgba(), dtype=np.uint8)
+            # reshape image from 1d array to 2d array, dropping alpha channel
+            return data.reshape(canvas.get_width_height()[::-1] + (4,))[:, :, :3]
 
         elif mode == "human":
             # render RGBA image on pygame surface
@@ -626,7 +628,7 @@ class MComCore(gymnasium.Env):
             raise ValueError("Invalid rendering mode.")
 
     def render_simulation(self, ax) -> None:
-        colormap = cm.get_cmap("RdYlGn")
+        colormap = colormaps["RdYlGn"]
         # define normalization for unscaled utilities
         unorm = plt.Normalize(self.utility.lower, self.utility.upper)
 
