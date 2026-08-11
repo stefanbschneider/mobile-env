@@ -9,13 +9,15 @@ with open(os.path.join(this_directory, "README.md"), encoding="utf-8") as f:
 
 
 requirements = [
-    "gymnasium",
-    "matplotlib",
-    "numpy",
-    "pandas",
-    "pygame",
-    "shapely",
-    "svgpath2mpl",
+    # gymnasium 1.0 introduced breaking changes (see docs/components.md); <2.0 to match the
+    # range that stable-baselines3 and Ray RLlib (see tests/requirements.txt) support
+    "gymnasium>=0.29.1,<2.0",
+    "matplotlib>=3.5",
+    "numpy>=1.22",
+    "pandas>=1.5",
+    "pygame>=2.1",
+    "shapely>=2.0",
+    "svgpath2mpl>=1.0",
 ]
 
 setup(
