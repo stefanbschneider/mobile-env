@@ -17,8 +17,9 @@ import gymnasium
 import pytest
 
 import mobile_env  # noqa: F401
-from mobile_env.wrappers.multi_agent import RLlibMAWrapper
 
+# mobile_env.wrappers.multi_agent imports ray.rllib at module level, so it must not be
+# imported until after importorskip has confirmed ray is actually installed.
 ray = pytest.importorskip("ray")
 pytest.importorskip("ray.rllib")
 
@@ -26,6 +27,8 @@ from ray.rllib.algorithms.algorithm import Algorithm  # noqa: E402
 from ray.rllib.algorithms.ppo import PPOConfig  # noqa: E402
 from ray.rllib.policy.policy import PolicySpec  # noqa: E402
 from ray.tune.registry import register_env  # noqa: E402
+
+from mobile_env.wrappers.multi_agent import RLlibMAWrapper  # noqa: E402
 
 ENV_NAME = "mobile-small-ma-v0"
 
