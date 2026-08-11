@@ -4,7 +4,23 @@ importlib-metadata
 flake8
 pytest
 nbmake
-# Older stable baselines versions do not support gymnasium
-stable-baselines3>=2.0.0
-# Only Ray 2.3+ supports gymnasium. Ray 2.39 needs gymnasium 1.0 and isn't fully supported yet.
-#ray[rllib]>=2.3.0, <2.39
+
+# stable-baselines3 and ray[rllib] both require Python >= 3.10 (and pull in torch), so they're
+# gated with an environment marker rather than lowering mobile-env's own python_requires.
+# On Python 3.9, `pip install -r tests/requirements.txt` simply skips these two lines and
+# tests/test_sb3.py, tests/test_rllib.py, tests/test_central_envs.py auto-skip (pytest.importorskip).
+
+# Older stable-baselines3 versions do not support gymnasium >= 1.0
+stable-baselines3>=2.0.0; python_version >= "3.10"
+
+# ray[rllib] pins gymnasium to an exact version per release (e.g. ray 2.57.0 -> gymnasium==1.2.2),
+# which stable-baselines3's `gymnasium<2.0,>=0.29.1` range accommodates.
+# NOTE: Ray's "new API stack" (the default since ~2.4x for PPO) does not work with mobile-env's
+# multi-agent wrapper as of Ray 2.57 (RLModule-based inference breaks; see PR discussion). Use the
+# old API stack explicitly via `PPOConfig().api_stack(enable_rl_module_and_learner=False,
+# enable_env_runner_and_connector_v2=False)`, which still works and is what examples/rllib.ipynb
+# and tests/test_rllib.py do.
+ray[rllib]>=2.3.0; python_version >= "3.10"
+# ray[rllib] needs a DL framework for the multi-agent PPO example; torch also comes in
+# transitively via stable-baselines3, but declared explicitly here since it's required directly
+torch; python_version >= "3.10"
