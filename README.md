@@ -68,15 +68,26 @@ This is recommended for most users. mobile-env is tested on Ubuntu, Windows, and
 ### From Source (Development)
 
 Alternatively, for development, you can clone `mobile-env` from GitHub and install it from source.
-After cloning, install in "editable" mode (-e):
+We recommend [`uv`](https://docs.astral.sh/uv/) for setting up a development environment
+(see [installation instructions](https://docs.astral.sh/uv/getting-started/installation/)); plain
+`pip` works the same way, just drop the `uv` prefix.
+
+After cloning, create a virtual environment and install `mobile-env` in "editable" mode (-e):
 
 ```bash
-pip install -e .
+uv venv
+source .venv/bin/activate
+uv pip install -e .
 ```
 
-This is equivalent to running `pip install -r requirements.txt`.
+This is equivalent to running `uv pip install -r requirements.txt`.
 
-If you want to run tests or examples, also install the requirements in `tests`.
+If you want to run tests or examples, also install the requirements in `tests`:
+
+```bash
+uv pip install -r tests/requirements.txt
+```
+
 For dependencies for building docs, install the requirements in `docs`.
 
 ## Example Usage
