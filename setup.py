@@ -30,7 +30,7 @@ setup(
     long_description_content_type="text/markdown",
     url="https://github.com/stefanbschneider/mobile-env",
     packages=find_packages(),
-    python_requires=">=3.9.0",
+    python_requires=">=3.10.0",
     install_requires=requirements,
     zip_safe=False,
     classifiers=[

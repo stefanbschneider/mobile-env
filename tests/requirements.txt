@@ -5,13 +5,8 @@ flake8
 pytest
 nbmake
 
-# stable-baselines3 and ray[rllib] both require Python >= 3.10 (and pull in torch), so they're
-# gated with an environment marker rather than lowering mobile-env's own python_requires.
-# On Python 3.9, `pip install -r tests/requirements.txt` simply skips these two lines and
-# tests/test_sb3.py, tests/test_rllib.py, tests/test_central_envs.py auto-skip (pytest.importorskip).
-
 # Older stable-baselines3 versions do not support gymnasium >= 1.0
-stable-baselines3>=2.0.0; python_version >= "3.10"
+stable-baselines3>=2.0.0
 
 # ray[rllib] pins gymnasium to an exact version per release (e.g. ray 2.57.0 -> gymnasium==1.2.2),
 # which stable-baselines3's `gymnasium<2.0,>=0.29.1` range accommodates.
@@ -20,7 +15,7 @@ stable-baselines3>=2.0.0; python_version >= "3.10"
 # old API stack explicitly via `PPOConfig().api_stack(enable_rl_module_and_learner=False,
 # enable_env_runner_and_connector_v2=False)`, which still works and is what examples/rllib.ipynb
 # and tests/test_rllib.py do.
-ray[rllib]>=2.3.0; python_version >= "3.10"
+ray[rllib]>=2.3.0
 # ray[rllib] needs a DL framework for the multi-agent PPO example; torch also comes in
 # transitively via stable-baselines3, but declared explicitly here since it's required directly
-torch; python_version >= "3.10"
+torch
