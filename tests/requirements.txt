@@ -11,12 +11,15 @@ stable-baselines3>=2.0.0
 
 # ray[rllib] pins gymnasium to an exact version per release (e.g. ray 2.57.0 -> gymnasium==1.2.2),
 # which stable-baselines3's `gymnasium<2.0,>=0.29.1` range accommodates.
-# NOTE: Ray's "new API stack" (the default since ~2.4x for PPO) does not work with mobile-env's
-# multi-agent wrapper as of Ray 2.57 (RLModule-based inference breaks; see PR discussion). Use the
-# old API stack explicitly via `PPOConfig().api_stack(enable_rl_module_and_learner=False,
-# enable_env_runner_and_connector_v2=False)`, which still works and is what examples/rllib.ipynb
-# and tests/test_rllib.py do.
-ray[rllib]>=2.3.0
+# examples/rllib.ipynb and tests/test_rllib.py use Ray's "new API stack" (the default since
+# ~2.4x for PPO). This requires `RLlibMAWrapper` to implement the newer `MultiAgentEnv`
+# interface (`possible_agents`, per-agent `observation_spaces`/`action_spaces` dicts, and a
+# final observation/reward for any UE that acted in the step it gets truncated -- see
+# mobile_env/wrappers/multi_agent.py) and inference to go through the trained RLModule
+# (`Algorithm.get_module()` + `forward_inference()`) instead of the removed
+# `Algorithm.compute_single_action()`. >=2.9.0 is the oldest release with a stable RLModule API;
+# in practice CI always installs the latest release since there's no upper bound.
+ray[rllib]>=2.9.0
 # ray[rllib] needs a DL framework for the multi-agent PPO example; torch also comes in
 # transitively via stable-baselines3, but declared explicitly here since it's required directly
 torch

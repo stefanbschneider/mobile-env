@@ -105,9 +105,10 @@ returned by `reset()`/`step()` is the handler's info merged with the monitor's l
   the SNR threshold).
 - `README.md` and `docs/components.md` both show `from mobile_env.core.channel import Channel`; the
   module is `mobile_env/core/channels.py`. The README snippet fails verbatim.
-- `mobile_env/wrappers/multi_agent.py` imports `ray.rllib` at module top, but ray is commented out of
-  `tests/requirements.txt` (Ray >= 2.39 requires gymnasium 1.0, which is not yet supported). The RLlib
-  wrapper is therefore untested by CI and needs a separate ray install. `PettingZooWrapper` is a stub.
+- `mobile_env/wrappers/multi_agent.py` imports `ray.rllib` at module top; `ray[rllib]` is in
+  `tests/requirements.txt` and `tests/test_rllib.py` exercises `RLlibMAWrapper` (train, checkpoint,
+  reload, infer) in CI on Ray's "new API stack" (see `tests/requirements.txt` for what that requires
+  of the wrapper). `PettingZooWrapper` is a stub.
 - `gymnasium` is unpinned in `setup.py` as of 2.1.0 (the earlier `<1.0.0` pin was lifted), but
   stable-baselines3 support constrains what actually works — see `tests/requirements.txt`.
 - The package version lives only in `setup.py`.
