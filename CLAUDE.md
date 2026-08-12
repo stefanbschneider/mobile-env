@@ -18,8 +18,9 @@ pytest                                                       # full suite
 pytest tests/test_env_stepping.py -k "small and central"     # single parametrized case
 pytest tests/test_central_envs.py::TestCentralEnvs::test_central_small
 pytest --nbmake examples/test.ipynb                          # notebooks are part of CI
-flake8 mobile_env --per-file-ignores="__init__.py:F401"      # exact CI invocation
-pre-commit run --all-files                                   # black, isort, flake8, yaml
+ruff check .                                                  # lint, exact CI invocation
+ruff format --check .                                         # format check, exact CI invocation
+pre-commit run --all-files                                   # ruff (lint + format), yaml checks
 ```
 
 Docs (Sphinx, published to ReadTheDocs via `.readthedocs.yaml`):
@@ -34,9 +35,10 @@ cd docs && make html          # output in docs/_build/html
 stubs, not generated at build time — a new module needs a matching rst entry (note that
 `mobile_env.wrappers` is currently missing from `docs/source/mobile_env.rst`).
 
-flake8 config is in `setup.cfg` (max-line-length 100, ignores E203); there is no `pyproject.toml`.
-Black/isort run only via pre-commit — CI does not check formatting.
-Python >= 3.9; CI matrix is 3.9–3.12 on ubuntu/macos/windows.
+ruff (lint + format) config is in `ruff.toml` (line-length 100, select `E`, `F`, `W`, `I`); there is
+no `pyproject.toml`. Both `ruff check` and `ruff format --check` run in CI and via pre-commit.
+Python >= 3.10; CI matrix is 3.10–3.13 on ubuntu/macos/windows (see `.github/workflows/python-package.yml`
+for the windows+3.13 exclusion).
 
 ## Architecture
 

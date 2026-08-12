@@ -1,8 +1,9 @@
 [![CI](https://github.com/stefanbschneider/mobile-env/actions/workflows/python-package.yml/badge.svg)](https://github.com/stefanbschneider/mobile-env/actions/workflows/python-package.yml)
-[![PyPI](https://github.com/stefanbschneider/mobile-env/actions/workflows/python-publish.yml/badge.svg)](https://github.com/stefanbschneider/mobile-env/actions/workflows/python-publish.yml)
+[![PyPI](https://img.shields.io/pypi/v/mobile-env)](https://pypi.org/project/mobile-env/)
 [![Documentation](https://readthedocs.org/projects/mobile-env/badge/?version=latest)](https://mobile-env.readthedocs.io/en/latest/?badge=latest)
-[![Code Style: Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/stefanbschneider/mobile-env/blob/master/examples/demo.ipynb)
+[![License: MIT](https://img.shields.io/github/license/stefanbschneider/mobile-env)](https://github.com/stefanbschneider/mobile-env/blob/main/LICENSE)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/stefanbschneider/mobile-env/blob/main/examples/demo.ipynb)
 
 
 # mobile-env: An Open Environment for Autonomous Coordination in Mobile Networks
@@ -29,8 +30,8 @@ To maximize QoE globally, the policy must recognize that (1) the data rate of an
 
 **Try mobile-env:**
 
-- Part I: Customizing mobile-env and single-agent RL with stable-baselines3: [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/stefanbschneider/mobile-env/blob/master/examples/demo.ipynb)
-- Part II: Multi-agent RL on mobile-env with Ray RLlib: [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/stefanbschneider/mobile-env/blob/master/examples/rllib.ipynb)
+- Part I: Customizing mobile-env and single-agent RL with stable-baselines3: [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/stefanbschneider/mobile-env/blob/main/examples/demo.ipynb)
+- Part II: Multi-agent RL on mobile-env with Ray RLlib: [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/stefanbschneider/mobile-env/blob/main/examples/rllib.ipynb)
 
 Documentation and API: [ReadTheDocs](https://mobile-env.readthedocs.io/en/latest/)
 

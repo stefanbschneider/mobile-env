@@ -1,7 +1,7 @@
 # extra requirements for testing
 pre-commit
 importlib-metadata
-flake8
+ruff
 pytest
 nbmake
 tensorboard

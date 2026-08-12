@@ -4,9 +4,7 @@ import pandas as pd
 
 
 class Monitor:
-    def __init__(
-        self, scalar_metrics: Dict, ue_metrics: Dict, bs_metrics: Dict, **kwargs
-    ):
+    def __init__(self, scalar_metrics: Dict, ue_metrics: Dict, bs_metrics: Dict, **kwargs):
 
         self.scalar_metrics: Dict = scalar_metrics
         self.ue_metrics: Dict = ue_metrics
@@ -27,20 +25,13 @@ class Monitor:
         """Evaluate and update metrics given the simulation state."""
 
         # evaluate scalar, ue, bs metrics by passing the simulation state
-        scalar_updates = {
-            name: metric(simulation) for name, metric in self.scalar_metrics.items()
-        }
-        ue_updates = {
-            name: metric(simulation) for name, metric in self.ue_metrics.items()
-        }
-        bs_updates = {
-            name: metric(simulation) for name, metric in self.bs_metrics.items()
-        }
+        scalar_updates = {name: metric(simulation) for name, metric in self.scalar_metrics.items()}
+        ue_updates = {name: metric(simulation) for name, metric in self.ue_metrics.items()}
+        bs_updates = {name: metric(simulation) for name, metric in self.bs_metrics.items()}
 
         # update results by appending the metrics' return values
         self.scalar_results = {
-            name: self.scalar_results[name] + [scalar_updates[name]]
-            for name in self.scalar_metrics
+            name: self.scalar_results[name] + [scalar_updates[name]] for name in self.scalar_metrics
         }
         self.ue_results = {
             name: self.ue_results[name] + [ue_updates[name]] for name in self.ue_metrics
