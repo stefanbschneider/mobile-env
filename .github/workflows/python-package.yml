@@ -15,12 +15,18 @@ jobs:
   build:
     runs-on: ${{matrix.platform}}
     strategy:
+      # show every combo's real result instead of the matrix cancelling the rest on first failure
+      fail-fast: false
       matrix:
         platform: [ubuntu-latest, macos-latest, windows-latest]
         # matches setup.py's python_requires (>=3.10); 3.14 excluded because pygame has no
         # prebuilt wheel for it yet, which breaks the build on all platforms (falls back to a
         # source build that needs system SDL2/freetype headers CI runners don't have)
         python-version: ["3.10", "3.11", "3.12", "3.13"]
+        exclude:
+          # ray[rllib] (see tests/requirements.txt) has no Windows wheel for 3.13 yet
+          - platform: windows-latest
+            python-version: "3.13"
 
     steps:
     - uses: actions/checkout@v4
