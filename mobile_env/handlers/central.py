@@ -28,9 +28,7 @@ class MComCentralHandler(Handler):
     @classmethod
     def action(cls, env, actions: Tuple[int]) -> Dict[int, int]:
         """Transform flattend actions to expected shape of core environment."""
-        assert len(actions) == len(
-            env.users
-        ), "Number of actions must equal overall UEs."
+        assert len(actions) == len(env.users), "Number of actions must equal overall UEs."
 
         users = sorted(env.users)
         return {ue_id: action for ue_id, action in zip(users, actions)}
@@ -60,7 +58,6 @@ class MComCentralHandler(Handler):
 
     @classmethod
     def check(cls, env):
-        assert [
-            ue.stime <= 0.0 and ue.extime >= env.EP_MAX_TIME
-            for ue in env.users.values()
-        ], "Central environment cannot handle a changing number of UEs."
+        assert [ue.stime <= 0.0 and ue.extime >= env.EP_MAX_TIME for ue in env.users.values()], (
+            "Central environment cannot handle a changing number of UEs."
+        )

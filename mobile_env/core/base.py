@@ -203,9 +203,7 @@ class MComCore(gymnasium.Env):
 
         # extra options currently not supported
         if options is not None and options != {}:
-            raise NotImplementedError(
-                "Passing extra options on env.reset() is not supported."
-            )
+            raise NotImplementedError("Passing extra options on env.reset() is not supported.")
 
         # reset state kept by arrival pattern, channel, scheduler, etc.
         self.arrival.reset()
@@ -309,14 +307,10 @@ class MComCore(gymnasium.Env):
         self.macro = self.macro_datarates(self.datarates)
 
         # compute utilities from UEs' data rates & log its mean value
-        self.utilities = {
-            ue: self.utility.utility(self.macro[ue]) for ue in self.active
-        }
+        self.utilities = {ue: self.utility.utility(self.macro[ue]) for ue in self.active}
 
         # scale utilities to range [-1, 1] before computing rewards
-        self.utilities = {
-            ue: self.utility.scale(util) for ue, util in self.utilities.items()
-        }
+        self.utilities = {ue: self.utility.scale(util) for ue, util in self.utilities.items()}
 
         # compute rewards from utility for each UE
         # method is defined by handler according to strategy pattern
@@ -336,11 +330,7 @@ class MComCore(gymnasium.Env):
 
         # update list of active UEs & add those that begin to request service
         self.active = sorted(
-            [
-                ue
-                for ue in self.users.values()
-                if ue.extime > self.time and ue.stime <= self.time
-            ],
+            [ue for ue in self.users.values() if ue.extime > self.time and ue.stime <= self.time],
             key=lambda ue: ue.ue_id,
         )
 
@@ -396,9 +386,7 @@ class MComCore(gymnasium.Env):
         snrs = [self.channel.snr(bs, ue) for ue in conns]
 
         # UE's max. data rate achievable when BS schedules all resources to it
-        max_allocation = [
-            self.channel.datarate(bs, ue, snr) for snr, ue in zip(snrs, conns)
-        ]
+        max_allocation = [self.channel.datarate(bs, ue, snr) for snr, ue in zip(snrs, conns)]
 
         # BS shares resources among connected user equipments
         rates = self.scheduler.share(bs, max_allocation)
@@ -412,8 +400,7 @@ class MComCore(gymnasium.Env):
         idle = self.utility.scale(self.utility.lower)
 
         util = {
-            bs: sum(self.utilities[ue] for ue in self.connections[bs])
-            / len(self.connections[bs])
+            bs: sum(self.utilities[ue] for ue in self.connections[bs]) / len(self.connections[bs])
             if self.connections[bs]
             else idle
             for bs in self.stations.values()
@@ -427,17 +414,13 @@ class MComCore(gymnasium.Env):
         config = self.default_config()["ue"]
 
         for bs in self.stations.values():
-            isolines[bs] = self.channel.isoline(
-                bs, config, (self.width, self.height), drate
-            )
+            isolines[bs] = self.channel.isoline(bs, config, (self.width, self.height), drate)
 
         return isolines
 
     def features(self) -> Dict[int, Dict[str, np.ndarray]]:
         # fix ordering of BSs for observations
-        stations = sorted(
-            [bs for bs in self.stations.values()], key=lambda bs: bs.bs_id
-        )
+        stations = sorted([bs for bs in self.stations.values()], key=lambda bs: bs.bs_id)
 
         # compute average utility of each basestation's connections
         bs_utilities = self.station_utilities()
@@ -470,9 +453,7 @@ class MComCore(gymnasium.Env):
                 bs: util if self.check_connectivity(bs, ue) else idle
                 for bs, util in bs_utilities.items()
             }
-            util_bcast = np.asarray(
-                [util_bcast[bs] for bs in stations], dtype=np.float32
-            )
+            util_bcast = np.asarray([util_bcast[bs] for bs in stations], dtype=np.float32)
 
             # (5) receive broadcast of (normalized) connected UE count
             # if broadcast is not received, set UE connection count to zero
@@ -501,9 +482,7 @@ class MComCore(gymnasium.Env):
             """Define dummy observation for non-active UEs."""
             onehot = np.zeros(self.NUM_STATIONS, dtype=np.float32)
             snrs = np.zeros(self.NUM_STATIONS, dtype=np.float32)
-            utility = np.asarray(
-                [self.utility.scale(self.utility.lower)], dtype=np.float32
-            )
+            utility = np.asarray([self.utility.scale(self.utility.lower)], dtype=np.float32)
             idle = self.utility.scale(self.utility.lower)
             util_bcast = idle * np.ones(self.NUM_STATIONS, dtype=np.float32)
             num_connected = np.ones(self.NUM_STATIONS, dtype=np.float32)

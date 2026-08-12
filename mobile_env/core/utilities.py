@@ -26,11 +26,7 @@ class Utility:
 
 class BoundedLogUtility(Utility):
     def __init__(
-        self,
-        lower: float,
-        upper: float,
-        coeffs: Tuple[float, float, float],
-        **kwargs: Dict
+        self, lower: float, upper: float, coeffs: Tuple[float, float, float], **kwargs: Dict
     ):
         super().__init__(**kwargs)
         self.lower = lower
@@ -42,9 +38,7 @@ class BoundedLogUtility(Utility):
         if datarate <= 0.0:
             return self.lower
 
-        utility = np.clip(
-            w1 * np.log(w2 + datarate) / np.log(w3), self.lower, self.upper
-        )
+        utility = np.clip(w1 * np.log(w2 + datarate) / np.log(w3), self.lower, self.upper)
         return utility
 
     def scale(self, utility) -> float:

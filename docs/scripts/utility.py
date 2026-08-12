@@ -24,9 +24,9 @@ def log_utility(curr_dr):
     # better: 10*log10(x) --> clip to [-20, 20];
     # -20 for <= 0.01 dr; +20 for >= 100 dr
     # ensure min/max utility are set correctly for this utility function
-    assert (
-        MIN_UTILITY == -20 and MAX_UTILITY == 20
-    ), "The chosen log utility requires min/max utility to be -20/+20"
+    assert MIN_UTILITY == -20 and MAX_UTILITY == 20, (
+        "The chosen log utility requires min/max utility to be -20/+20"
+    )
     if curr_dr == 0:
         return MIN_UTILITY
     return np.clip(10 * np.log10(curr_dr), MIN_UTILITY, MAX_UTILITY)

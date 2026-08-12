@@ -1,0 +1,19 @@
+# Ruff replaces black (formatting), isort (import sorting), and flake8 (linting).
+# https://docs.astral.sh/ruff/
+
+line-length = 100
+
+# ruff format defaults to reformatting notebooks and the Python code fences inside markdown docs
+# too; black (previously used via pre-commit) never touched either, so keep excluding them to
+# avoid a large diff unrelated to this repo's actual .py sources and to not risk breaking
+# `pytest --nbmake examples/test.ipynb`.
+extend-exclude = ["*.ipynb", "*.md"]
+
+[lint]
+# Match the previous flake8 setup (default E/F/W) plus isort's import-sorting (I).
+select = ["E", "F", "W", "I"]
+
+[lint.per-file-ignores]
+# unused imports are intentional in __init__.py (re-exported for `import mobile_env` side
+# effects / package API), matching the old `--per-file-ignores="__init__.py:F401"` CI flag.
+"__init__.py" = ["F401"]

@@ -43,9 +43,13 @@ jobs:
         pip install .
         pip install -r tests/requirements.txt
 
-    - name: Lint with flake8
+    - name: Lint with ruff
       run: |
-        flake8 mobile_env --per-file-ignores="__init__.py:F401"
+        ruff check .
+
+    - name: Check formatting with ruff
+      run: |
+        ruff format --check .
 
     - name: Run tests with pytest
       run: |
