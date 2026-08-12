@@ -2,16 +2,13 @@
 
 Mirrors the single-agent RL flow shown in examples/demo.ipynb, at a much smaller training
 budget: we only assert that training and inference run without errors, not that the policy
-converges. stable-baselines3 (and torch) are only installed on Python >= 3.10, see
-tests/requirements.txt, so this whole module is skipped otherwise.
+converges.
 """
 
 import gymnasium
-import pytest
+import stable_baselines3
 
 import mobile_env  # noqa: F401
-
-stable_baselines3 = pytest.importorskip("stable_baselines3")
 
 
 def test_sb3_ppo_train_and_predict():

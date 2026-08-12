@@ -8,27 +8,18 @@ NOTE: Uses RLlib's "old API stack" (`enable_rl_module_and_learner=False,
 enable_env_runner_and_connector_v2=False`) deliberately. mobile-env's `RLlibMAWrapper` targets
 that interface; the new API stack requires a different multi-agent env interface and, as of
 Ray 2.57, breaks single-action inference for multi-agent policies (see tests/requirements.txt).
-
-ray[rllib] (and torch) are only installed on Python >= 3.10, see tests/requirements.txt, so this
-whole module is skipped otherwise.
 """
 
 import gymnasium
 import pytest
+import ray
+from ray.rllib.algorithms.algorithm import Algorithm
+from ray.rllib.algorithms.ppo import PPOConfig
+from ray.rllib.policy.policy import PolicySpec
+from ray.tune.registry import register_env
 
 import mobile_env  # noqa: F401
-
-# mobile_env.wrappers.multi_agent imports ray.rllib at module level, so it must not be
-# imported until after importorskip has confirmed ray is actually installed.
-ray = pytest.importorskip("ray")
-pytest.importorskip("ray.rllib")
-
-from ray.rllib.algorithms.algorithm import Algorithm  # noqa: E402
-from ray.rllib.algorithms.ppo import PPOConfig  # noqa: E402
-from ray.rllib.policy.policy import PolicySpec  # noqa: E402
-from ray.tune.registry import register_env  # noqa: E402
-
-from mobile_env.wrappers.multi_agent import RLlibMAWrapper  # noqa: E402
+from mobile_env.wrappers.multi_agent import RLlibMAWrapper
 
 ENV_NAME = "mobile-small-ma-v0"
 

@@ -1,13 +1,9 @@
 import unittest
 
 import gymnasium
-import pytest
+from stable_baselines3.common.env_checker import check_env
 
 import mobile_env  # noqa: F401
-
-# stable-baselines3 (and its dependency torch) is only installed for Python >= 3.10,
-# see tests/requirements.txt
-check_env = pytest.importorskip("stable_baselines3.common.env_checker").check_env
 
 
 class TestCentralEnvs(unittest.TestCase):
