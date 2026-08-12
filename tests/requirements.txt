@@ -4,6 +4,7 @@ importlib-metadata
 flake8
 pytest
 nbmake
+tensorboard
 
 # Older stable-baselines3 versions do not support gymnasium >= 1.0
 stable-baselines3>=2.0.0

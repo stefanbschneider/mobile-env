@@ -82,7 +82,7 @@ uv pip install -e .
 
 This is equivalent to running `uv pip install -r requirements.txt`.
 
-If you want to run tests or examples, also install the requirements in `tests`:
+If you want to run tests or example notebooks, also install the requirements in `tests`:
 
 ```bash
 uv pip install -r tests/requirements.txt
