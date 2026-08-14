@@ -26,7 +26,7 @@ from mobile_env.handlers.handler import Handler
 
 class MComCore(gymnasium.Env):
     NOOP_ACTION = 0
-    metadata = {"render_modes": ["rgb_array", "human"]}
+    metadata = {"render_modes": ["rgb_array", "human"], "render_fps": 30}
 
     def __init__(
         self,
@@ -517,10 +517,9 @@ class MComCore(gymnasium.Env):
             self.mb_isolines = self.bs_isolines(1.0)
 
         # set up matplotlib figure & axis configuration
-        fig = plt.figure()
-        fx = max(3.0 / 2.0 * 1.25 * self.width / fig.dpi, 8.0)
-        fy = max(1.25 * self.height / fig.dpi, 5.0)
-        plt.close()
+        dpi = plt.rcParams["figure.dpi"]
+        fx = max(3.0 / 2.0 * 1.25 * self.width / dpi, 8.0)
+        fy = max(1.25 * self.height / dpi, 5.0)
         fig = plt.figure(figsize=(fx, fy))
         gs = fig.add_gridspec(
             ncols=2,
@@ -597,6 +596,11 @@ class MComCore(gymnasium.Env):
 
             # update the full display surface to the window
             pygame.display.flip()
+
+            # cap the frame rate so consecutive frames are evenly paced,
+            # otherwise rendering speed varies with how long each frame
+            # takes to draw and playback looks choppy
+            self.clock.tick(self.metadata["render_fps"])
 
             # handle pygame events (such as closing the window)
             for event in pygame.event.get():
