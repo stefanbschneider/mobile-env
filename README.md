@@ -149,6 +149,14 @@ env = gymnasium.make('mobile-small-central-v0', config=config)
 
 If you are using `movile-env`, please let us know and we are happy to link to your project from the readme. You can also open a pull request yourself.
 
+* [Mir Riyanul Islam, Shaibal Barua, Mobyen Uddin Ahmed, Shahina Begum, "Explaining Agents' Interactions Through their Causal Behavior and Counterfactuals", 2026](https://doi.org/10.1007/978-3-032-31141-2_20)
+* [Zeyu Fang, Shu Hong, Huu Trung Thieu, Nakjung Choi, Tian Lan, "ZODIAC: Zero-shot Offline Diffusion for Inferring Multi-xApps Conflicts in Open Radio Access Networks", 2026](https://arxiv.org/abs/2604.19610)
+* [Nicolas Helson, Pegah Alizadeh, Anastasios Giovanidis, "Selecting Offline Reinforcement Learning Algorithms for Stochastic Network Control", 2026](https://arxiv.org/abs/2603.03932)
+* [Weijun Huang, Chen-Khong Tham, "Transformer-based Reinforcement Learning for Base Station Selection", 2025](https://doi.org/10.1109/GLOBECOM59602.2025.11432277)
+* [Boikobo Nokane, Bassey Isong, Moshe T. Masonta, "Evaluating Reinforcement Learning-Based Xapps for User-Centric Resource Allocation in Open RAN", 2025](https://doi.org/10.1109/IMITEC67386.2025.11410449)
+* [Konrad Nowosadko, Franco Ruggeri, Ahmad Terra, "Self-Explaining Reinforcement Learning for Mobile Network Resource Allocation", 2025](https://arxiv.org/abs/2509.14925)
+* [Ziyang Zhang, Yiming Liu, Zheng Jiang, Bei Yang, Jianchi Zhu, "An Intelligent Energy-Efficient Handover Scheme Based on CoMP for Heterogeneous Network", 2024](https://doi.org/10.1109/LCOMM.2024.3375283)
+* [Harun Ur Rashid, Seong Ho Jeong, "Resource Allocation in Multi-Cell Networks: A Deep Reinforcement Learning Approach", 2023](https://doi.org/10.1109/ICTC58733.2023.10393199)
 * [Mohammadreza Kouchaki and Vuk Marojevic, "Actor-Critic Network for O-RAN Resource Allocation: xApp Design, Deployment, and Analysis", 2022](https://arxiv.org/abs/2210.04604)
 * [Stefan Schneider, Ramin Khalili, Artur Hecker, Holger Karl, "DeepCoMP: Self-Learning Dynamic Multi-Cell Selection for Coordinated Multipoint (CoMP)", 2021](https://github.com/CN-UPB/DeepCoMP)
 
