@@ -26,7 +26,10 @@ from mobile_env.handlers.handler import Handler
 
 class MComCore(gymnasium.Env):
     NOOP_ACTION = 0
-    metadata = {"render_modes": ["rgb_array", "human"], "render_fps": 30}
+    # rendering redraws the whole matplotlib figure from scratch (~100-450ms depending on
+    # scenario size), so this is a realistic cap rather than an arbitrary "smooth video" number;
+    # see clock.tick() in render() below
+    metadata = {"render_modes": ["rgb_array", "human"], "render_fps": 10}
 
     def __init__(
         self,
