@@ -9,6 +9,7 @@ import numpy as np
 import pygame
 from matplotlib import colormaps
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+from matplotlib.figure import Figure
 from pygame import Surface
 
 from mobile_env.core import metrics
@@ -520,10 +521,13 @@ class MComCore(gymnasium.Env):
             self.mb_isolines = self.bs_isolines(1.0)
 
         # set up matplotlib figure & axis configuration
+        # build the Figure directly (bypassing pyplot's stateful, GUI-backend-selecting
+        # plt.figure()) since it's immediately wrapped in an explicit Agg canvas below anyway;
+        # this also sidesteps environments where the GUI backend is broken/unavailable
         dpi = plt.rcParams["figure.dpi"]
         fx = max(3.0 / 2.0 * 1.25 * self.width / dpi, 8.0)
         fy = max(1.25 * self.height / dpi, 5.0)
-        fig = plt.figure(figsize=(fx, fy))
+        fig = Figure(figsize=(fx, fy))
         gs = fig.add_gridspec(
             ncols=2,
             nrows=3,
@@ -557,9 +561,6 @@ class MComCore(gymnasium.Env):
         fig.align_ylabels((qoe_ax, conn_ax))
         canvas = FigureCanvas(fig)
         canvas.draw()
-
-        # prevents opening multiple figures on consecutive render() calls
-        plt.close()
 
         if mode == "rgb_array":
             # render RGB image for e.g. video recording
