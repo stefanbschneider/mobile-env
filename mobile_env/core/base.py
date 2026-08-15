@@ -9,6 +9,7 @@ import numpy as np
 import pygame
 from matplotlib import colormaps
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+from matplotlib.figure import Figure
 from pygame import Surface
 
 from mobile_env.core import metrics
@@ -26,7 +27,10 @@ from mobile_env.handlers.handler import Handler
 
 class MComCore(gymnasium.Env):
     NOOP_ACTION = 0
-    metadata = {"render_modes": ["rgb_array", "human"]}
+    # rendering redraws the whole matplotlib figure from scratch (~100-450ms depending on
+    # scenario size), so this is a realistic cap rather than an arbitrary "smooth video" number;
+    # see clock.tick() in render() below
+    metadata = {"render_modes": ["rgb_array", "human"], "render_fps": 10}
 
     def __init__(
         self,
@@ -517,11 +521,13 @@ class MComCore(gymnasium.Env):
             self.mb_isolines = self.bs_isolines(1.0)
 
         # set up matplotlib figure & axis configuration
-        fig = plt.figure()
-        fx = max(3.0 / 2.0 * 1.25 * self.width / fig.dpi, 8.0)
-        fy = max(1.25 * self.height / fig.dpi, 5.0)
-        plt.close()
-        fig = plt.figure(figsize=(fx, fy))
+        # build the Figure directly (bypassing pyplot's stateful, GUI-backend-selecting
+        # plt.figure()) since it's immediately wrapped in an explicit Agg canvas below anyway;
+        # this also sidesteps environments where the GUI backend is broken/unavailable
+        dpi = plt.rcParams["figure.dpi"]
+        fx = max(3.0 / 2.0 * 1.25 * self.width / dpi, 8.0)
+        fy = max(1.25 * self.height / dpi, 5.0)
+        fig = Figure(figsize=(fx, fy))
         gs = fig.add_gridspec(
             ncols=2,
             nrows=3,
@@ -555,9 +561,6 @@ class MComCore(gymnasium.Env):
         fig.align_ylabels((qoe_ax, conn_ax))
         canvas = FigureCanvas(fig)
         canvas.draw()
-
-        # prevents opening multiple figures on consecutive render() calls
-        plt.close()
 
         if mode == "rgb_array":
             # render RGB image for e.g. video recording
@@ -597,6 +600,11 @@ class MComCore(gymnasium.Env):
 
             # update the full display surface to the window
             pygame.display.flip()
+
+            # cap the frame rate so consecutive frames are evenly paced,
+            # otherwise rendering speed varies with how long each frame
+            # takes to draw and playback looks choppy
+            self.clock.tick(self.metadata["render_fps"])
 
             # handle pygame events (such as closing the window)
             for event in pygame.event.get():

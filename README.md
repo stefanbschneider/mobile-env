@@ -23,9 +23,9 @@ However, BSs multiplex resources among connected UEs (e.g. schedule physical res
 To maximize QoE globally, the policy must recognize that (1) the data rate of any connection is governed by the channel (e.g. SNR) between UE and BS and (2) QoE of single UEs not necessarily grows linearly with increasing data rate.
 
 <p align="center">
-    <img src="https://user-images.githubusercontent.com/36734964/139288123-7732eff2-24d4-4c25-87fd-ac906f261c93.gif" width="65%"/>
+    <img src="https://raw.githubusercontent.com/stefanbschneider/mobile-env/main/docs/images/mobile-env.gif" width="65%"/>
     <br>
-    <sup><a href="https://thenounproject.com/search/?q=base+station&i=1286474" target="_blank">Base station icon</a> by Clea Doltz from the Noun Project</sup>
+    <sup>A multi-agent PPO policy (trained with Ray RLlib; see <code>docs/scripts/</code>) coordinating cell selection on the medium scenario. <a href="https://thenounproject.com/search/?q=base+station&i=1286474" target="_blank">Base station icon</a> by Clea Doltz from the Noun Project</sup>
 </p>
 
 **Try mobile-env:**
